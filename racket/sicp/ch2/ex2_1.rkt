@@ -36,6 +36,10 @@
   (make-rat (* (numer x) (denom y))
             (* (denom x) (numer y))))
 
+(define [rat-equal? x y]
+  (= (* (numer x) (denom y))
+     (* (numer y) (denom x))))
+
 (define [print-rat x]
   (newline)
   (display (numer x))
