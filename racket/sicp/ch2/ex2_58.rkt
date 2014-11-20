@@ -16,7 +16,10 @@
         ([and (number? expr-a) (number? expr-b)] (+ expr-a expr-b))
         (else (list expr-a '+ expr-b))))
 (define [addend expr] (car expr))
-(define [augend expr] (caddr expr))
+(define [augend expr]
+  (if [null? (cdddr expr)]
+    (caddr expr)
+    (list (caddr expr) (cadddr expr) (car (cddddr expr)))))
 
 (define [product? expr] (and (pair? expr) (eq? (cadr expr) '*)))
 ;(define [make-product expr-a expr-b] (list '* expr-a expr-b))
@@ -27,7 +30,10 @@
         ([and (number? expr-a) (number? expr-b)] (* expr-a expr-b))
         (else (list expr-a '* expr-b))))
 (define [multiplier expr] (car expr))
-(define [multiplcand expr] (caddr expr))
+(define [multiplcand expr]
+  (if [null? (cdddr expr)]
+    (caddr expr)
+    (list (caddr expr) (cadddr expr) (car (cddddr expr)))))
 
 (define [exponentiation? expr] (and (pair? expr) (eq? (car expr) '**)))
 (define [make-exponentiation expr-a expr-b]
@@ -72,4 +78,5 @@
 ;(deriv '(* x y) 'x)
 ;(deriv '(* (* x y) (+ x 3)) 'x)
 ;(deriv '(* x y (+ x 3)) 'x)
-(deriv '(x + (3 * (x + (y + 2)))) 'x)
+;(deriv '(x + (3 * (x + (y + 2)))) 'x)
+(deriv '(x + 3 * (x + y + 2)) 'x)
