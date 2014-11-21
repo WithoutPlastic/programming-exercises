@@ -42,16 +42,29 @@
         (else (error "bad bit -- SELECT-BRANCH-VIA-BIT" bit))))
 
 (define [encode input-symbols code-tree]
-  (define [encode-symbol left-symbols current-branch]
-    (cond ([null? left-symbols] '())
-          ([leaf? current-branch]
-           (encode-symbol (cdr left-symbols) code-tree))
-          ([member (car left-symbols) (symbols (tree-left current-branch))]
-           (cons 0 (encode-symbol left-symbols (tree-left current-branch))))
-          ([member (car left-symbols) (symbols (tree-right current-branch))]
-           (cons 1 (encode-symbol left-symbols (tree-right current-branch))))
-          (else (error "bad symbol -- ENCODE-SYMBOLS" (car left-symbols)))))
-  (encode-symbol input-symbols code-tree))
+  (if [null? input-symbols]
+    '()
+    (append (encode-symbol (car input-symbols) code-tree)
+            (encode (cdr input-symbols) code-tree))))
+
+(define [encode-symbol symbol code-tree]
+  (cond ([leaf? code-tree] '())
+        ([member symbol (symbols (tree-left code-tree))]
+         (cons 0 (encode-symbol symbol (tree-left code-tree))))
+        ([member symbol (symbols (tree-right code-tree))]
+         (cons 1 (encode-symbol symbol (tree-right code-tree))))
+        (else (error "bad symbol -- ENCODE-SYMBOL" symbol))))
+
+;  (define [encode-symbol left-symbols current-branch]
+;    (cond ([null? left-symbols] '())
+;          ([leaf? current-branch]
+;           (encode-symbol (cdr left-symbols) code-tree))
+;          ([member (car left-symbols) (symbols (tree-left current-branch))]
+;           (cons 0 (encode-symbol left-symbols (tree-left current-branch))))
+;          ([member (car left-symbols) (symbols (tree-right current-branch))]
+;           (cons 1 (encode-symbol left-symbols (tree-right current-branch))))
+;          (else (error "bad symbol -- ENCODE-SYMBOLS" (car left-symbols)))))
+;  (encode-symbol input-symbols code-tree))
 
 (define [adjoin-set element set]
   (cond ([null? set] (list element))
