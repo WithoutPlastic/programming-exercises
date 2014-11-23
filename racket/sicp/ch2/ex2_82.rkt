@@ -28,6 +28,14 @@
             (list from-type to-type)))
 
 (define [apply-generic op . args]
+  (if [< (length args) 3]
+    (apply apply-operator op args)
+    (apply apply-generic
+           op
+           (apply-operator op (car args) (cadr args))
+           (cddr args))))
+
+(define [apply-operator op . args]
   (let* ([args-type-tags (map extract-tag args)])
     (define op-matched? (has-op? op args-type-tags))
     (define [launch-op]
@@ -43,12 +51,12 @@
              [first-arg (car args)]
              [second-arg (cadr args)])
         (cond ([has-convert? first-arg-type second-arg-type]
-               (apply-generic
+               (apply-operator
                  op
                  ((get-convert first-arg-type second-arg-type) first-arg)
                  second-arg))
               ([has-convert? second-arg-type first-arg-type]
-               (apply-generic
+               (apply-operator
                  op
                  first-arg
                  ((get-convert second-arg-type first-arg-type)
@@ -284,24 +292,24 @@
   (install-rational-package)
   (install-complex-package))
 
-(define [zero? x] (apply-generic 'zero? x))
-(define [equ? x y] (apply-generic 'equ? x y))
-(define [add x y] (apply-generic 'add x y))
-(define [sub x y] (apply-generic 'sub x y))
-(define [mul x y] (apply-generic 'mul x y))
-(define [div x y] (apply-generic 'div x y))
-(define [gcd x y] (apply-generic 'gcd x y))
-(define [numer x] (apply-generic 'numer x))
-(define [denom x] (apply-generic 'denom x))
-(define [sin x] (apply-generic 'sin x))
-(define [cos x] (apply-generic 'cos x))
-(define [atan x] (apply-generic 'atan x))
-(define [sqrt x] (apply-generic 'sqrt x))
-(define [expt x] (apply-generic 'expt x))
-(define [real-part x] (apply-generic 'real-part x))
-(define [imag-part x] (apply-generic 'imag-part x))
-(define [magnitude x] (apply-generic 'magnitude x))
-(define [angle x] (apply-generic 'angle x))
+(define [zero? x] (apply-operator 'zero? x))
+(define [equ? . args] (apply apply-generic 'equ? args))
+(define [add . args] (apply apply-generic 'add args))
+(define [sub . args] (apply apply-generic 'sub args))
+(define [mul . args] (apply apply-generic 'mul args))
+(define [div . args] (apply apply-generic 'div args))
+(define [gcd . args] (apply apply-generic 'gcd args))
+(define [numer x] (apply-operator 'numer x))
+(define [denom x] (apply-operator 'denom x))
+(define [sin x] (apply-operator 'sin x))
+(define [cos x] (apply-operator 'cos x))
+(define [atan x] (apply-operator 'atan x))
+(define [sqrt x] (apply-operator 'sqrt x))
+(define [expt x] (apply-operator 'expt x))
+(define [real-part x] (apply-operator 'real-part x))
+(define [imag-part x] (apply-operator 'imag-part x))
+(define [magnitude x] (apply-operator 'magnitude x))
+(define [angle x] (apply-operator 'angle x))
 
 ;input type racket number always no type dispatch
 (define [make-scheme-number x]
@@ -323,9 +331,10 @@
 ;                                  (make-scheme-number 2))
 ;     (make-complex-from-real-imag (make-scheme-number 4)
 ;                                  (make-scheme-number 5)))
-(add (make-scheme-number 1)
-     (make-complex-from-real-imag (make-scheme-number 4)
-                                  (make-scheme-number 5)))
 (add (make-complex-from-real-imag (make-scheme-number 4)
                                   (make-scheme-number 5))
      (make-scheme-number 1))
+(add (make-scheme-number 1)
+     (make-scheme-number 1)
+     (make-complex-from-real-imag (make-scheme-number 4)
+                                  (make-scheme-number 5)))
