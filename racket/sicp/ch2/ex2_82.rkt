@@ -5,21 +5,61 @@
 (define [extract-tag x] (car x))
 (define [extract-data x] (cdr x))
 (define op-table (make-hash))
+(define [has-op? op args-type-tags]
+  (hash-has-key? op-table (list op args-type-tags)))
 (define [get-op op args-type-tags]
-  (hash-ref op-table
-            (list op args-type-tags)))
-(define [put-op op args-type-tags return-type-tag proc ]
+  (hash-ref op-table (list op args-type-tags)))
+(define [put-op op args-type-tags return-type-tag proc]
   (hash-set! op-table
              (list op args-type-tags)
              (attach-tag return-type-tag proc)))
 
+;convert op table share individual table
+;two input type tags is different, indicate a convert procedure
+(define convert-table (make-hash))
+(define [has-convert? from-type to-type]
+  (hash-has-key? convert-table (list from-type to-type)))
+(define [put-convert from-type to-type proc]
+  (hash-set! convert-table
+             (list from-type to-type)
+             (attach-tag to-type proc)))
+(define [get-convert from-type to-type]
+  (hash-ref convert-table
+            (list from-type to-type)))
+
 (define [apply-generic op . args]
-  (let* ([args-type-tags (map extract-tag args)]
-         [proc (get-op op args-type-tags)])
-    (if proc
-      (apply proc (map extract-data args))
-      (error "No method for these types -- APPLY-GENERIC"
-             (list op args-type-tags)))))
+  (let* ([args-type-tags (map extract-tag args)])
+    (define op-matched? (has-op? op args-type-tags))
+    (define [launch-op]
+      (apply (get-op op args-type-tags)
+             (map extract-data args)))
+    ;Only two input args
+    (define args-type-same?
+      (or (= (length args-type-tags) 1)
+          (eq? (car args-type-tags) (cadr args-type-tags)))) 
+    (define [convert-and-retry]
+      (let* ([first-arg-type (car args-type-tags)]
+             [second-arg-type (cadr args-type-tags)]
+             [first-arg (car args)]
+             [second-arg (cadr args)])
+        (cond ([has-convert? first-arg-type second-arg-type]
+               (apply-generic
+                 op
+                 ((get-convert first-arg-type second-arg-type) first-arg)
+                 second-arg))
+              ([has-convert? second-arg-type first-arg-type]
+               (apply-generic
+                 op
+                 first-arg
+                 ((get-convert second-arg-type first-arg-type)
+                  second-arg)))
+              (else (error "No available type convert" args)))))
+
+    (cond (op-matched? (launch-op))
+          ([not args-type-same?]
+           (convert-and-retry))
+          (args-type-same?
+           (error "No method for these types" (list op args))))))
 
 (define [install-packages]
   (define [install-scheme-number-package]
@@ -51,26 +91,52 @@
     (put-op 'divide
             '(scheme-number scheme-number)
             'scheme-number
-            (lambda [value-a value-b] (/ value-a value-b))))
+            (lambda [value-a value-b] (/ value-a value-b)))
+    (put-op 'gcd
+            '(scheme-number scheme-number)
+            'scheme-number
+            (lambda [value-a value-b] (gcd value-a value-b)))
+    (put-op 'cos
+            '(scheme-number)
+            'scheme-number
+            (lambda [value] (cos value)))
+    (put-op 'sin
+            '(scheme-number)
+            'scheme-number
+            (lambda [value] (sin value)))
+    (put-op 'atan
+            '(scheme-number)
+            'scheme-number
+            (lambda [value] (atan value)))
+    (put-op 'sqrt
+            '(scheme-number)
+            'scheme-number
+            (lambda [value] (sqrt value)))
+    (put-op 'expt
+            '(scheme-number scheme-number)
+            'scheme-number
+            (lambda [value-a value-b] (expt value-a value-b))))
 
   (define [install-rational-package]
     (define [numer rational] (car rational))
-    (define [denom rational] (car rational))
+    (define [denom rational] (cdr rational))
     (define [make-rational numer denom]
-      (if [= (gcd numer denom) 1]
-        (cons numer denom)
-        (make-rational (/ numer (gcd numer denom)) (/ denom (gcd numer denom)))))
+      (let ([gcd-of-numer-denom (gcd numer denom)])
+        (if [equ? gcd-of-numer-denom 1]
+          (cons numer denom)
+          (make-rational (div numer gcd-of-numer-denom)
+                         (div denom gcd-of-numer-denom)))))
 
     (put-op 'equ?
             '(rational rational)
             'bool
             (lambda [value-a value-b]
-              (and (= (numer value-a) (numer value-b))
-                   (= (denom value-a) (denom value-b)))))
+              (and (equ? (numer value-a) (numer value-b))
+                   (equ? (denom value-a) (denom value-b)))))
     (put-op 'zero?
             '(rational)
             'bool
-            (lambda [value] (= (numer value) 0))
+            (lambda [value] (equ? (numer value) (make-scheme-number 0)))
             )
     (put-op 'numer
             '(rational)
@@ -80,7 +146,7 @@
             '(rational)
             'scheme-number
             (lambda [rational] (denom rational)))
-    (put-op 'make
+    (put-op 'make-rational
             '(scheme-number scheme-number)
             'rational
             (lambda [numer denom] (make-rational numer denom)))
@@ -89,70 +155,67 @@
             'rational
             (lambda [rational-a rational-b]
               (make-rational
-                (+ (* (numer rational-a) (denom rational-b))
-                   (* (numer rational-b) (denom rational-a)))
-                (* (denom rational-a) (denom rational-b)))))
+                (add (mul (numer rational-a) (denom rational-b))
+                     (mul (numer rational-b) (denom rational-a)))
+                (mul (denom rational-a) (denom rational-b)))))
     (put-op 'sub
             '(rational rational)
             'rational
             (lambda [rational-a rational-b]
               (make-rational
-                (- (* (numer rational-a) (denom rational-b))
-                   (* (numer rational-b) (denom rational-a)))
-                (* (denom rational-a) (denom rational-b)))))
+                (sub (mul (numer rational-a) (denom rational-b))
+                     (mul (numer rational-b) (denom rational-a)))
+                (mul (denom rational-a) (denom rational-b)))))
     (put-op 'mul
             '(rational rational)
             'rational
             (lambda [rational-a rational-b]
               (make-rational
-                (* (numer rational-a) (numer rational-b))
-                (* (denom rational-a) (denom rational-b)))))
+                (mul (numer rational-a) (numer rational-b))
+                (mul (denom rational-a) (denom rational-b)))))
     (put-op 'div
             '(rational rational)
             'rational
             (lambda [rational-a rational-b]
               (make-rational
-                (* (numer rational-a) (denom rational-b))
-                (* (denom rational-a) (numer rational-b)))))
-    )
+                (mul (numer rational-a) (denom rational-b))
+                (mul (denom rational-a) (numer rational-b)))))
+
+    (put-convert 'scheme-number
+                 'rational
+                 (lambda [value]
+                   (make-rational value (make-scheme-number 1)))))
+
   (define [install-complex-package]
     ;(define [install-complex-real-imag-package])
     ;(define [install-complex-mgnt-angl-package])
-    (define [make-from-real-imag real imag] (cons real imag))
+    (define [make-from-real-imag real imag]
+      (cons real imag))
     (define [make-from-mag-ang mag ang]
-      (cons (* mag (cos ang)) (* mag (sin ang))))
+      (make-from-real-imag (mul mag (cos ang))
+                           (mul mag (sin ang))))
     (define [real-part complex] (car complex))
     (define [imag-part complex] (cdr complex))
     (define [magnitude complex]
-      (sqrt (+ (expt (real-part complex) 2)
-               (expt (imag-part complex) 2))))
+      (sqrt (add (expt (real-part complex) (make-scheme-number 2))
+                 (expt (imag-part complex) (make-scheme-number 2)))))
     (define [angle complex]
-      (atan (/ (imag-part complex) (real-part complex))))
-
-    (define [add complex-a complex-b]
-      (make-from-real-imag (+ (real-part complex-a) (real-part complex-b))
-                           (+ (imag-part complex-a) (imag-part complex-b))))
-    (define [sub complex-a complex-b]
-      (make-from-real-imag (- (real-part complex-a) (real-part complex-b))
-                           (- (imag-part complex-a) (imag-part complex-b))))
-    (define [mul complex-a complex-b]
-      (make-from-mag-ang (* (magnitude complex-a) (magnitude complex-b))
-                         (+ (angle complex-a) (angle complex-b))))
-    (define [div complex-a complex-b]
-      (make-from-mag-ang (/ (magnitude complex-a) (magnitude complex-b))
-                         (- (angle complex-a) (angle complex-b))))
+      (atan (div (imag-part complex) (real-part complex))))
 
     (put-op 'equ?
             '(complex complex)
             'complex
             (lambda [value-a value-b]
-              (and (= (real-part value-a) (real-part value-b))
-                   (= (imag-part value-a) (imag-part value-b)))))
+              (and (equ? (real-part value-a) (real-part value-b))
+                   (equ? (imag-part value-a) (imag-part value-b)))))
     (put-op 'zero?
             '(complex)
             'bool
-            (lambda [value] (and (= (real-part value) 0)
-                                 (= (imag-part value) 0))))
+            (lambda [value]
+              (and (equ? (real-part value)
+                         (make-scheme-number 0))
+                   (equ? (imag-part value)
+                         (make-scheme-number 0)))))
     (put-op 'real-part
             '(complex)
             'scheme-number
@@ -181,22 +244,41 @@
             '(scheme-number scheme-number)
             'complex
             (lambda [mag ang] (make-from-mag-ang mag ang)))
+
     (put-op 'add
             '(complex complex)
             'complex
-            (lambda [complex-a complex-b] (add complex-a complex-b)))
+            (lambda [complex-a complex-b]
+              (make-from-real-imag
+                (add (real-part complex-a) (real-part complex-b))
+                (add (imag-part complex-a) (imag-part complex-b)))))
     (put-op 'sub
             '(complex complex)
             'complex
-            (lambda [complex-a complex-b] (sub complex-a complex-b)))
+            (lambda [complex-a complex-b]
+              (make-from-real-imag
+                (sub (real-part complex-a) (real-part complex-b))
+                (sub (imag-part complex-a) (imag-part complex-b)))))
     (put-op 'mul
             '(complex complex)
             'complex
-            (lambda [complex-a complex-b] (mul complex-a complex-b)))
+            (lambda [complex-a complex-b]
+              (make-from-mag-ang
+                (mul (magnitude complex-a) (magnitude complex-b))
+                (mul (angle complex-a) (angle complex-b)))))
     (put-op 'div
             '(complex complex)
             'complex
-            (lambda [complex-a complex-b] (div complex-a complex-b))))
+            (lambda [complex-a complex-b]
+              (make-from-mag-ang
+                (div (magnitude complex-a) (magnitude complex-b))
+                (div (angle complex-a) (angle complex-b)))))
+
+    (put-convert 'scheme-number
+                 'complex
+                 (lambda [value]
+                   (make-from-real-imag value
+                                        (make-scheme-number 0)))))
 
   (install-scheme-number-package)
   (install-rational-package)
@@ -208,22 +290,42 @@
 (define [sub x y] (apply-generic 'sub x y))
 (define [mul x y] (apply-generic 'mul x y))
 (define [div x y] (apply-generic 'div x y))
+(define [gcd x y] (apply-generic 'gcd x y))
 (define [numer x] (apply-generic 'numer x))
 (define [denom x] (apply-generic 'denom x))
+(define [sin x] (apply-generic 'sin x))
+(define [cos x] (apply-generic 'cos x))
+(define [atan x] (apply-generic 'atan x))
+(define [sqrt x] (apply-generic 'sqrt x))
+(define [expt x] (apply-generic 'expt x))
 (define [real-part x] (apply-generic 'real-part x))
 (define [imag-part x] (apply-generic 'imag-part x))
 (define [magnitude x] (apply-generic 'magnitude x))
 (define [angle x] (apply-generic 'angle x))
 
+;input type racket number always no type dispatch
 (define [make-scheme-number x]
-  ((get-op 'make '(scheme-number)) x)) ; No type dispatch
+  ((get-op 'make '(scheme-number)) x)) 
 (define [make-rational x y]
-  (apply-generic 'make x y))
+  ((get-op 'make-rational '(scheme-number scheme-number)) x y))
 (define [make-complex-from-real-imag real imag]
-  (apply-generic 'make-from-real-imag real imag))
+  ((get-op 'make-from-real-imag '(scheme-number scheme-number)) real imag))
 (define [make-complex-from-mag-ang mag ang]
-  (apply-generic 'make-from-mag-ang mag ang))
+  ((get-op 'make-from-mag-ang '(scheme-number scheme-number)) mag ang))
+
+(define [scheme-number->rational x]
+  ((get-convert 'scheme-number 'rational) x))
+(define [scheme-number->complex x]
+  ((get-convert 'scheme-number 'complex) x))
 
 (install-packages)
-(add (make-complex-from-real-imag (make-scheme-number 1) (make-scheme-number 2))
-     (make-complex-from-real-imag (make-scheme-number 4) (make-scheme-number 5)))
+;(add (make-complex-from-real-imag (make-scheme-number 1)
+;                                  (make-scheme-number 2))
+;     (make-complex-from-real-imag (make-scheme-number 4)
+;                                  (make-scheme-number 5)))
+(add (make-scheme-number 1)
+     (make-complex-from-real-imag (make-scheme-number 4)
+                                  (make-scheme-number 5)))
+(add (make-complex-from-real-imag (make-scheme-number 4)
+                                  (make-scheme-number 5))
+     (make-scheme-number 1))
