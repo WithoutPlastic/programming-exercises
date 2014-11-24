@@ -2,30 +2,59 @@
 
 (define [attach-tag tag proc]
   (lambda args (cons tag (apply proc args))))
-(define [extract-tag x] (car x))
-(define [extract-data x] (cdr x))
+(define [extract-tag x] (if [number? x] 'scheme-number (car x)))
+(define [extract-data x] (if [number? x] x (cdr x)))
 (define op-table (make-hash))
 (define [has-op? op args-type-tags]
   (hash-has-key? op-table (list op args-type-tags)))
 (define [get-op op args-type-tags]
   (hash-ref op-table (list op args-type-tags)))
 (define [put-op op args-type-tags return-type-tag proc]
-  (hash-set! op-table
-             (list op args-type-tags)
-             (attach-tag return-type-tag proc)))
+  (if [eq? return-type-tag 'bool]
+    (hash-set! op-table
+               (list op args-type-tags)
+               proc)
+    (hash-set! op-table
+               (list op args-type-tags)
+               (attach-tag return-type-tag proc))))
 
 ;convert op table share individual table
 ;two input type tags is different, indicate a convert procedure
 (define convert-table (make-hash))
-(define [can-be-raised? value] (has-convert? (extract-tag value)))
-(define [has-convert? from-type]
-  (hash-has-key? convert-table from-type))
-(define [raise value] ((get-convert (extract-tag value)) value))
-(define [get-convert from-type]
-  (hash-ref convert-table from-type))
+(define [has-convert? from-type to-type]
+  (hash-has-key? (list from-type to-type)))
+(define [get-convert from-type to-type]
+  (hash-ref convert-table (list from-type to-type)))
 (define [put-convert from-type to-type proc]
-  (hash-set! convert-table from-type (attach-tag to-type proc)))
+  (if [eq? to-type 'null]
+    (hash-set! convert-table
+               (list from-type to-type)
+               (lambda [value] (proc (extract-data value))))
+    (hash-set! convert-table
+               (list from-type to-type)
+               (attach-tag to-type proc))))
+
 (define type-chain (list 'scheme-number 'rational 'complex))
+(define [has-raise-convert-key? from-type]
+  (< 1 (length (memq from-type type-chain))))
+(define [get-raise-convert-key from-type]
+  (list from-type (cadr (memq from-type type-chain))))
+(define [can-be-raise? value] (has-raise-convert-key? (extract-tag value)))
+(define [raise value]
+  ((apply get-convert (get-raise-convert-key (extract-tag value))) value))
+
+(define [has-drop-convert-key? from-type]
+  (not (eq? from-type (car type-chain))))
+(define [get-drop-convert-key from-type] (list from-type 'null))
+(define [can-be-drop? value] (has-drop-convert-key? (extract-tag value)))
+(define [drop value]
+  ((apply get-convert (get-drop-convert-key (extract-tag value))) value))
+(define [loseless-drop? value]
+  (equ? value (raise (drop value))))
+(define [deep-drop value]
+  (if [and (can-be-drop? value) (loseless-drop? value)]
+    (deep-drop (drop value))
+    value))
 
 (define [apply-generic op . args]
   (if [< (length args) 3]
@@ -34,7 +63,6 @@
            op
            (apply-operator op (car args) (cadr args))
            (cddr args))))
-
 
 (define [apply-operator op . args]
   (let* ([args-type-tags (map extract-tag args)])
@@ -49,12 +77,12 @@
     (define [convert-and-retry]
       (let* ([first-arg (car args)]
              [second-arg (cadr args)])
-        (cond ([can-be-raised? first-arg]
+        (cond ([can-be-raise? first-arg]
                (apply-operator
                  op
                  (raise first-arg)
                  second-arg))
-              ([can-be-raised? second-arg]
+              ([can-be-raise? second-arg]
                (apply-operator
                  op
                  first-arg
@@ -90,7 +118,7 @@
             '(scheme-number scheme-number)
             'scheme-number
             (lambda [value-a value-b] (- value-a value-b)))
-    (put-op 'multiple
+    (put-op 'mul
             '(scheme-number scheme-number)
             'scheme-number
             (lambda [value-a value-b] (* value-a value-b)))
@@ -127,7 +155,7 @@
     (define [numer rational] (car rational))
     (define [denom rational] (cdr rational))
     (define [make-rational numer denom]
-      (let ([gcd-of-numer-denom (gcd numer denom)])
+      (let ([gcd-of-numer-denom (alt-gcd numer denom)])
         (if [equ? gcd-of-numer-denom 1]
           (cons numer denom)
           (make-rational (div numer gcd-of-numer-denom)
@@ -190,7 +218,10 @@
     (put-convert 'scheme-number
                  'rational
                  (lambda [value]
-                   (make-rational value (make-scheme-number 1)))))
+                   (make-rational value (make-scheme-number 1))))
+    (put-convert 'rational
+                 'null
+                 (lambda [value] (numer value))))
 
   (define [install-complex-package]
     ;(define [install-complex-real-imag-package])
@@ -210,7 +241,7 @@
 
     (put-op 'equ?
             '(complex complex)
-            'complex
+            'bool
             (lambda [value-a value-b]
               (and (equ? (real-part value-a) (real-part value-b))
                    (equ? (imag-part value-a) (imag-part value-b)))))
@@ -280,23 +311,26 @@
                 (div (magnitude complex-a) (magnitude complex-b))
                 (div (angle complex-a) (angle complex-b)))))
 
-    (put-convert 'scheme-number
+    (put-convert 'rational
                  'complex
                  (lambda [value]
                    (make-from-real-imag value
-                                        (make-scheme-number 0)))))
+                                        (make-scheme-number 0))))
+    (put-convert 'complex
+                 'null
+                 (lambda [value] (real-part value))))
 
   (install-scheme-number-package)
   (install-rational-package)
   (install-complex-package))
 
 (define [zero? x] (apply-operator 'zero? x))
-(define [equ? . args] (apply apply-generic 'equ? args))
-(define [add . args] (apply apply-generic 'add args))
-(define [sub . args] (apply apply-generic 'sub args))
-(define [mul . args] (apply apply-generic 'mul args))
-(define [div . args] (apply apply-generic 'div args))
-(define [gcd . args] (apply apply-generic 'gcd args))
+(define [equ? x y] (apply-operator 'equ? x y))
+(define [add . args] (deep-drop (apply apply-generic 'add args)))
+(define [sub . args] (deep-drop (apply apply-generic 'sub args)))
+(define [mul . args] (deep-drop (apply apply-generic 'mul args)))
+(define [div . args] (deep-drop (apply apply-generic 'div args)))
+(define [alt-gcd . args] (apply apply-generic 'gcd args))
 (define [numer x] (apply-operator 'numer x))
 (define [denom x] (apply-operator 'denom x))
 (define [sin x] (apply-operator 'sin x))
@@ -324,9 +358,10 @@
 ;                                  (make-scheme-number 2))
 ;     (make-complex-from-real-imag (make-scheme-number 4)
 ;                                  (make-scheme-number 5)))
+(loseless-drop? '(complex (scheme-number . 5) scheme-number . 2))
 (add (make-complex-from-real-imag (make-scheme-number 4)
-                                  (make-scheme-number 5))
-     (make-scheme-number 1))
+                                (make-scheme-number 5))
+   (make-scheme-number 1))
 (add (make-scheme-number 1)
      (make-scheme-number 1)
      (make-complex-from-real-imag (make-scheme-number 4)
