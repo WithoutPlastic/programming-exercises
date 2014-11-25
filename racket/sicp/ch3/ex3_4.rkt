@@ -2,13 +2,12 @@
 
 (define call-the-cops (lambda args (display "Cops called!\n")))
 (define [make-account available-credit password]
-  (define last-password-incorrect? #f)
   (define password-incorrect-count 0)
   (lambda [op input-password]
     (if [eq? input-password password]
       (lambda [amount]
         (begin
-          (set! last-password-incorrect? #f)
+          (set! password-incorrect-count 0)
           (cond ([eq? op 'withdraw]
                  (begin
                    (if [< available-credit amount]
@@ -24,14 +23,13 @@
                 (else (error "Unknown operation" op)))))
       (lambda args
         (begin
-          (cond ([and last-password-incorrect? (< 5 password-incorrect-count)]
+          (cond ([< 5 password-incorrect-count]
                  (call-the-cops))
-                (last-password-incorrect?
+                ([< 0 password-incorrect-count]
                  (set! password-incorrect-count (+ password-incorrect-count 1)))
                 (else
                   (begin
-                    (set! password-incorrect-count 1)
-                    (set! last-password-incorrect? #t))))
+                    (set! password-incorrect-count 1))))
           "Incorrect password")))))
 
 (define acc (make-account 100 'secret-password))
