@@ -1,14 +1,14 @@
 #lang racket
 
-(define called-times 0)
-(define [f x]
-  (begin
-    (set! called-times (add1 called-times))
-    (if [= called-times 1]
-      x
-      0)))
+(define f
+  (let ([called-times 0])
+    (lambda [x]
+      (if [= (add1 called-times )1]
+        (begin
+          (set! called-times (add1 called-times))
+          x)
+        0))))
 
 (+ (f 1) (f 0))
 
-(set! called-times 0)
-(+ (f 0) (f 1))
+;(+ (f 0) (f 1))
