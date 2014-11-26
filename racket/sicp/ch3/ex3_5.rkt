@@ -1,6 +1,8 @@
 #lang racket
 
 (define [random-in-range low high] (+ low (random (- high low))))
+;alternative random to support inexact random number
+;(define [random-in-range low high] (+ low (* (random) (- high low))))
 (define [monte-carlo trials experiment]
   (define [iter left-trials passed-trials]
     (cond ([= left-trials 0] (/ passed-trials trials))
