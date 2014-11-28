@@ -50,6 +50,15 @@
   (add-transformation in-b or-proc)
   'or-gate-ok)
 
+;             +
+; ---<in-a>---|>---<inner-d>---+---\
+;             +                 \   |               +
+;                                |  |---<inner-f>---|>---<out-c>---
+;             +                 /   |               +
+; ---<in-b>---|>---<inner-e>---+---/
+;             +
+;
+;      <inverter-delay>   <and-gate-delay>   <inverter-delay>
 (define [alternate-or-gate in-a in-b out-c]
   (let ([inner-d (make-wire)]
         [inner-e (make-wire)]
