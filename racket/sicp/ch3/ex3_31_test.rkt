@@ -108,6 +108,71 @@
         (check-= (current-seconds)
                  (+ test-start-time longest-delay-interval)
                  1)))
+
+    (test-case
+      "agenda propagate do all actions in agenda test"
+      (let* ([test-agenda (make-agenda)]
+             [action-modified-list '()]
+             [test-action-a (lambda [] (set! action-modified-list
+                                         (cons 'a action-modified-list)))]
+             [test-action-b (lambda [] (set! action-modified-list
+                                         (cons 'b action-modified-list)))]
+             [test-action-c (lambda [] (set! action-modified-list
+                                         (cons 'c action-modified-list)))]
+             [test-delay-interval 1])
+        (delay-trigger test-agenda test-delay-interval test-action-a)
+        (delay-trigger test-agenda test-delay-interval test-action-b)
+        (delay-trigger test-agenda test-delay-interval test-action-c)
+        (propagate test-agenda)
+        (check-equal? action-modified-list
+                      '(c b a))))
+
+    (test-case
+      "inverter signal test"
+      (let ([in-a (make-wire)]
+            [out-b (make-wire)])
+        (inverter in-a out-b)
+        (check-eq? (get-signal out-b) 0
+                   "out wire stay initial signal when just defined")
+
+        (propagate global-agenda)
+        (check-eq? (get-signal out-b) 1
+                   "out wire signal is inverted after delay interval")
+
+        (set-signal! in-a 1)
+        (check-eq? (get-signal out-b) 1
+                   "input signal change don't reflect output immediatelly")
+
+        (propagate global-agenda)
+        (check-eq? (get-signal out-b) 0
+                   "out wire signal is inverted again after delay interval")))
+
+    (test-case
+      "and gate signal test"
+      (let ([in-a (make-wire)]
+            [in-b (make-wire)]
+            [out-c (make-wire)])
+        (and-gate in-a in-b out-c)
+        (set-signal! in-a 1)
+        (set-signal! in-b 1)
+        (propagate global-agenda)
+        (check-eq? (get-signal out-c) 1
+                   "out wire changed when two input signals turn to 1")))
+
+    (test-case
+      "or gate signal test"
+      (let ([in-a (make-wire)]
+            [in-b (make-wire)]
+            [out-c (make-wire)])
+        (or-gate in-a in-b out-c)
+        (set-signal! in-a 1)
+        (propagate global-agenda)
+        (check-eq? (get-signal out-c) 1
+                   "out wire changed when either input signal turn to 1")
+        (set-signal! in-b 1)
+        (propagate global-agenda)
+        (check-eq? (get-signal out-c) 1
+                   "out wire stay 1 when both input signal turn to 1")))
   ))
 
 (run-tests file-tests)
