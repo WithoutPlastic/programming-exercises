@@ -61,6 +61,8 @@
 ;initial        cube    square  apply-square-changes    apply-cube-changes
 ; 10            10(1000) 10(1000,100) 100(1000)         1000
 ;
+;Take interleave case into consideration
+;10000 and 100000 is also possible
 
 (define x 10)
 (define s (make-serializer))
@@ -79,3 +81,6 @@
 ;case 1
 ;initial        cube-and-apply      square-and-apply
 ; 10            1000                1000000
+;
+;Since cube and square is linearize add equal, it donen't output different
+;result
