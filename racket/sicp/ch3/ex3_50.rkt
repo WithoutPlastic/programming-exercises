@@ -30,7 +30,7 @@
 (define [cons-stream stream-elt delayed-stream]
   (cons stream-elt delayed-stream))
 (define [the-empty-stream] '())
-(define [stream-null? stream] [null? stream])
+(define [empty-stream? stream] [null? stream])
 (define [stream-car stream] (car stream))
 (define [stream-cdr stream] (force (cdr stream)))
 (define [stream-ref stream index]
@@ -38,18 +38,18 @@
     (stream-car stream)
     (stream-ref (stream-cdr stream) (sub1 index))))
 (define [stream-for-each proc stream]
-  (if [stream-null? stream]
+  (if [empty-stream? stream]
     'stm-for-each-done
     (begin
       (proc (stream-car stream))
       (stream-for-each proc (stream-cdr stream)))))
 (define [stream-map proc stream]
-  (if [stream-null? stream]
+  (if [empty-stream? stream]
     'stm-map-done
-    (cons-stream (proc (stream-car stream)
-                       (delay stream-map proc (stream-cdr stream))))))
+    (cons-stream (proc (stream-car stream))
+                       (delay stream-map proc (stream-cdr stream)))))
 (define [stream-filter pred stream]
-  (cond ([stream-null? stream] 'stm-filter-done)
+  (cond ([empty-stream? stream] 'stm-filter-done)
         ([pred (stream-car stream)]
          (cons-stream (stream-car stream)
                       (delay stream-filter pred (stream-cdr stream))))
@@ -67,3 +67,10 @@
   (stream-cdr
     (stream-filter prime?
                    (stream-enumerate-interval 10000 1000000))))
+
+(define [alt-stream-map proc . stream-args]
+  (if [ormap empty-stream? stream-args]
+    the-empty-stream
+    (cons-stream
+      (apply proc (map stream-car stream-args))
+      (delay apply alt-stream-map proc (map stream-cdr stream-args)))))
