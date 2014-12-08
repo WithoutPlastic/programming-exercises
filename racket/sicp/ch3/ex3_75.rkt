@@ -330,32 +330,10 @@
 ;    (cons-stream (sign-change-detector avpt last-value)
 ;                 (lambda [] (make-zero-crossings (stream-cdr input-stream)
 ;                                                 avpt)))))
-(define [make-zero-crossings input-stream last-value before-last-value]
-  (let ([avpt (/ (+ (stream-car input-stream) before-last-value) 2)])
-    (cons-stream (sign-change-detector avpt last-value)
+(define [make-zero-crossings input-stream last-value last-avpt]
+  (let ([avpt (/ (+ (stream-car input-stream) last-value) 2)])
+    (cons-stream (sign-change-detector avpt last-avpt)
                  (lambda [] (make-zero-crossings (stream-cdr input-stream)
                                                  (stream-car input-stream)
-                                                 last-value)))))
-
-;
-;            A
-;           / \
-;        <v1> <v2> 
-;        / |    \
-;       /  |     \<v3>
-;      /|  |      V
-;  <v0> |  +--+
-;       |     |
-;      avpt  v1 > detector to compare values on different time axis is invalid
-;
-;            A
-;           / \
-;        <v1> <v2> 
-;        / |   |\
-;       /  |   | \<v3>
-;      /   |   |  V
-;  <v0>   v1   |
-;    |     |   |
-;    |     +---+--->compare signals on same time axis
-;    |     |   |
-;    +--->avpt<+
+                                                 avpt)))))
+;the jitter reduction using avpt compared with last-avpt
