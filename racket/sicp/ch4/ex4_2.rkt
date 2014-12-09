@@ -216,3 +216,6 @@
 ;answer: it say that to re-arrange cond predicates sequence, not cond predicate
 ;itself. So when met (define x 3), 'define is treated as a procedure symbol to 
 ;be called. but in env, there is no define symbol defined. Things not work.
+(define [application? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'call])
+(define [operator application-expr] (car (tagged-expr-body application-expr)))
+(define [operands application-expr] (cdr (tagged-expr-body application-expr)))
