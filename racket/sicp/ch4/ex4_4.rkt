@@ -1,6 +1,5 @@
 #lang racket
 
-
 (define tagged-expr-eval-table (make-hash))
 (define [register-tagged-expr-eval tag proc]
   (hash-set! tagged-expr-eval-table tag proc))
@@ -41,35 +40,61 @@
 (define [and? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'and])
 (define [make-and-expr cond-exprs] (cons 'and cond-exprs))
 (define [and-cond-exprs and-expr] (cdr and-expr))
-(define [eval-and-expr and-expr env]
+;(define [eval-and-expr and-expr env]
+;  (define [iter remaining-cond-exprs]
+;    (let* ([first-cond-expr (car remaining-cond-exprs)]
+;           [rest-cond-exprs (cdr remaining-cond-exprs)]
+;           [first-cond-return (evlt first-cond-expr env)])
+;      (cond ([false? first-cond-return] false)
+;            ([null? rest-cond-exprs] first-cond-return)
+;            (else (iter rest-cond-exprs)))))
+;
+;  (if [null? (and-cond-exprs and-expr)]
+;    true
+;    (iter (and-cond-exprs and-expr))))
+(define [expand-and-cond-exprs cond-exprs]
   (define [iter remaining-cond-exprs]
-    (let* ([first-cond-expr (car remaining-cond-exprs)]
-           [rest-cond-exprs (cdr remaining-cond-exprs)]
-           [first-cond-return (evlt first-cond-expr env)])
-      (cond ([false? first-cond-return] false)
-            ([null? rest-cond-exprs] first-cond-return)
-            (else (iter rest-cond-exprs)))))
+    (let ([first-cond-expr (car remaining-cond-exprs)]
+          [rest-cond-exprs (cdr remaining-cond-exprs)])
+      (if [null? rest-cond-exprs]
+        (make-if-expr first-cond-expr first-cond-expr false)
+        (make-if-expr first-cond-expr
+                      (iter rest-cond-exprs)
+                      false))))
 
-  (if [null? (and-cond-exprs and-expr)]
-    true
-    (iter (and-cond-exprs and-expr))))
+  (if [null? cond-exprs] true (iter cond-exprs)))
+(define [eval-and-expr and-expr env]
+  (eval-if-expr (expand-and-cond-exprs (and-cond-exprs and-expr)) env))
 (register-tagged-expr-eval 'and eval-and-expr)
 
 (define [or? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'or])
 (define [make-or-expr cond-exprs] (cons 'or cond-exprs))
 (define [or-cond-exprs or-expr] (cdr or-expr))
-(define [eval-or-expr or-expr env]
+;(define [eval-or-expr or-expr env]
+;  (define [iter remaining-cond-exprs]
+;    (let* ([first-cond-expr (car remaining-cond-exprs)]
+;           [rest-cond-exprs (cdr remaining-cond-exprs)]
+;           [first-cond-return (evlt first-cond-expr env)])
+;      (cond ([true? first-cond-return] true)
+;            ([null? rest-cond-exprs] false)
+;            (else (iter rest-cond-exprs)))))
+;  
+;  (if [null? (or-cond-exprs or-expr)]
+;    false
+;    (iter (or-cond-exprs or-expr))))
+(define [expand-or-cond-exprs cond-exprs]
   (define [iter remaining-cond-exprs]
-    (let* ([first-cond-expr (car remaining-cond-exprs)]
-           [rest-cond-exprs (cdr remaining-cond-exprs)]
-           [first-cond-return (evlt first-cond-expr env)])
-      (cond ([true? first-cond-return] true)
-            ([null? rest-cond-exprs] false)
-            (else (iter rest-cond-exprs)))))
+    (let ([first-cond-expr (car remaining-cond-exprs)]
+          [rest-cond-exprs (cdr remaining-cond-exprs)])
+      (if [null? rest-cond-exprs]
+        (make-if-expr first-cond-expr true false)
+        (make-if-expr first-cond-expr
+                      true
+                      (iter rest-cond-exprs)))))
   
-  (if [null? (or-cond-exprs or-expr)]
-    false
-    (iter (or-cond-exprs or-expr))))
+  (if [null? cond-exprs] false (iter cond-exprs)))
+(define [eval-or-expr or-expr env]
+  (eval-if-expr (expand-or-cond-exprs (or-cond-exprs or-expr) env)))
 (register-tagged-expr-eval 'or eval-or-expr)
 
 (define [if? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'if])
