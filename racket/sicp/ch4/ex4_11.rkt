@@ -305,12 +305,14 @@
     (cons (evlt (first-operand operands) env)
           (list-of-values (rest-operands operands) env))))
 
-(define [make-frame variables values] (cons variables values))
-(define [frame-variables frame] (car frame))
-(define [frame-values frame] (cdr frame))
+(define [make-frame variables values]
+  (map (lambda [var val] (cons var val)) variables values))
+(define [frame-variables frame] (map car frame))
+(define [frame-values frame] (map cdr frame))
+(define [first-pair var-val-pairs] (car var-val-pairs))
+(define [rest-pairs var-val-pairs] (cdr var-val-pairs))
 (define [add-binding-to-frame new-variable new-value frame]
-  (set-car! frame (cons new-variable (frame-variables frame)))
-  (set-cdr! frame (cons new-value (frame-values frame))))
+  (cons (cons new-variable new-value) frame))
 
 (define the-empty-environment '())
 (define [enclosing-environment env] (cdr env))
@@ -324,44 +326,39 @@
         (else
          (error "parameters and arguments inconsist, lack of arguments"))))
 (define [lookup-variable-value variable env]
-  (define [inner-frame-iter remaining-vars remaining-vals]
-    (cond ([or [null? remaining-vars] [null? remaining-vals]]
+  (define [inner-frame-iter var-val-pairs]
+    (cond ([null? var-val-pairs]
            (lookup-variable-value variable (enclosing-environment env)))
-          ([eq? (car remaining-vars) variable] (car remaining-vals))
-          (else (inner-frame-iter (cdr remaining-vars)
-                                  (cdr remaining-vals)))))
+          ([eq? (car (first-pair var-val-pairs)) variable]
+           (cdr (first-pair var-val-pairs)))
+          (else (inner-frame-iter (rest-pairs var-val-pairs)))))
   
   (if [eq? env the-empty-environment]
     (error "unbound variable -- LOOKUP-VARIABLE-VALUE" variable)
-    (inner-frame-iter (frame-variables (first-frame env))
-                      (frame-values (first-frame env)))))
+    (inner-frame-iter (first-frame env))))
 (define [set-variable-value! variable new-value env]
-  (define [inner-frame-iter remaining-vars remaining-vals]
-    (cond ([or [null? remaining-vars] [null? remaining-vals]]
+  (define [inner-frame-iter var-val-pairs]
+    (cond ([null? var-val-pairs]
            (set-variable-value! variable new-value (enclosing-environment env)))
-          ([eq? (car remaining-vars) variable]
-           (set-car! remaining-vals new-value))
-          (else (inner-frame-iter (cdr remaining-vars)
-                                  (cdr remaining-vals)))))
+          ([eq? (car (first-pair var-val-pairs)) variable]
+           (set-cdr! (first-pair var-val-pairs)))
+          (else (inner-frame-iter (rest-pairs var-val-pairs)))))
 
   (if [eq? env the-empty-environment]
     (error "set unbound variable failed -- SET-VARIABLE-VALUE!" variable)
-    (inner-frame-iter (frame-variables (first-frame env))
-                      (frame-values (first-frame env)))))
+    (inner-frame-iter (first-frame env))))
 (define [define-variable! variable init-value env]
-  (define [inner-frame-iter remaining-vars remaining-vals]
-    (cond ([or [null? remaining-vars] [null? remaining-vals]]
+  (define [inner-frame-iter var-val-pairs]
+    (cond ([null? var-val-pairs]
            (define-variable! variable init-value (enclosing-environment env)))
-          ([eq? (car remaining-vars) variable]
+          ([eq? (car (first-pair var-val-pairs) variable)]
            (error "duplicated variable definition -- DEFINE-VARIABLE!"
                   variable))
-          (else (inner-frame-iter (cdr remaining-vars)
-                                  (cdr remaining-vals)))))
+          (else (inner-frame-iter (rest-pairs var-val-pairs)))))
   
   (if [eq? env the-empty-environment]
     (add-binding-to-frame (first-frame env))
-    (inner-frame-iter (frame-variables (first-frame env))
-                      (frame-values (first-frame env)))))
+    (inner-frame-iter (first-frame env))))
 
 (define [evlt expr env]
   (cond ([self-evaluating? expr] expr)
