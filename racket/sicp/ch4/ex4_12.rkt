@@ -327,6 +327,7 @@
          (error "parameters and arguments inconsist, lack of arguments"))))
 
 (define [env-variable-operation variable env founded-proc not-founded-proc]
+  (define deepest-frame (first-frame env))
   (define [frame-iter enclosing-env]
     (if [eq? enclosing-env the-empty-environment]
       (not-founded-proc deepest-frame)
@@ -338,8 +339,7 @@
            (founded-proc (first-pair var-val-pairs)))
           (else (inner-frame-iter (rest-pairs var-val-pairs)))))
   
-  (let ([deepest-frame (first-frame env)])
-    (frame-iter env)))
+  (frame-iter env))
 (define [lookup-variable-value variable env]
   (env-variable-operation
     variable
