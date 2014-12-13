@@ -46,7 +46,10 @@
   (env-variable-operation
     variable
     env
-    (lambda [pair] (cdr pair))
+    (lambda [pair]
+      (if [eq? (cdr pair) '*unassigned]
+        (error "met unassigned variable -- LOOKUP-VARIABLE-VALUE" variable)
+        (cdr pair)))
     (lambda [frame] (error "variable not founded -- LOOKUP-VARIABLE-VALUE"
                            variable))))
 (define [set-variable-value! variable new-value env]
@@ -233,9 +236,22 @@
 ;Lambda tag expr
 ;('lambda (<param> ...) <expr> ...)
 (define [make-lambda-expr parameters exprs]
+  (define [scan-out-defines]
+    (let ([definition-exprs (filter definition? exprs)]
+          [remaining-exprs (filter (lambda [x] [not [definition? x]]) exprs)])
+      (cons 'lambda
+            (cons parameters
+                  (make-let-expr
+                    (map (lambda [x] (cons x '*unassigned*))
+                         (map definition-variable definition-exprs))
+                    (append (map (lambda [var val] (list 'set! var val))
+                                 (map definition-variable definition-exprs)
+                                 (map definition-value definition-exprs))
+                            remaining-exprs))))))
+
   (if [null? exprs]
     (error "lambda body empty -- MAKE-LAMBDA-EXPR")
-    (cons 'lambda (cons parameters exprs))))
+    (scan-out-defines)))
 (define [lambda? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'lambda])
 (define [lambda-parameters tagged-expr]
   (let ([parameters (car (tagged-expr-body tagged-expr))])
@@ -524,3 +540,8 @@
 ;
 ;;;; M-Eval value:
 ;(a b c d e f)
+;
+;Answer: about the where the scan-out-defines should be insert. As you know, I
+;still can't catch the point of the make-procedure sample in SICP. So the only
+;choice is to insert it in make-lambda-expr. which might be reused in make
+;procedure.
