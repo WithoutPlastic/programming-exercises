@@ -34,7 +34,7 @@
 (define [make-evaluated-thunk value] (cons 'evaluated-thunk value))
 (define [evaluated-thunk? object]
   [and [pair? object] [eq? (car object) 'evaluated-thunk]])
-(define [evaluted-thunk-value evaluted-thunk] (cdr evaluted-thunk))
+(define [evaluated-thunk-value evaluted-thunk] (cdr evaluted-thunk))
 
 (define [delay-it object env]
   (cond ([not [thunk? object]] (make-thunk object env))
@@ -45,7 +45,7 @@
     (let ([value ((thunk-expr object) (thunk-env object))])
       (set! object (make-evaluated-thunk value))
       value))
-  (define [return-value] (evaluted-thunk-value object))
+  (define [return-value] (evaluated-thunk-value object))
 
   (cond ([thunk? object] (thunk->evaluated!))
         ([evaluated-thunk? object] (return-value))
