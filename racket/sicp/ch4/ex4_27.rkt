@@ -24,6 +24,34 @@
 (define set-pa-pair-parameter! set-vv-pair-variable!)
 (define set-pa-pair-argument! set-vv-pair-value!)
 
+;Thunk object manipulation
+(define [make-thunk expr env] (cons 'thunk (cons expr env)))
+(define [thunk? object]
+  [and [pair? object] [eq? (car object) 'thunk]])
+(define [thunk-expr thunk] (cadr thunk))
+(define [thunk-env thunk] (cddr thunk))
+
+(define [make-evaluated-thunk value] (cons 'evaluated-thunk value))
+(define [evaluated-thunk? object]
+  [and [pair? object] [eq? (car object) 'evaluated-thunk]])
+(define [evaluted-thunk-value evaluted-thunk] (cdr evaluted-thunk))
+
+(define [delay-it object env]
+  (cond ([not [thunk? object]] (make-thunk object env))
+        (else object)))
+(define [delay-all objects env] (map (lambda [x] (delay-it x env)) objects))
+(define [force-it object]
+  (define [thunk->evaluated!]
+    (let ([value ((thunk-expr object) (thunk-env object))])
+      (set! object (make-evaluated-thunk value))
+      value))
+  (define [return-value] (evaluted-thunk-value object))
+
+  (cond ([thunk? object] (thunk->evaluated!))
+        ([evaluated-thunk? object] (return-value))
+        (else object)))
+(define [force-all objects] (map force-it objects))
+
 ;Environment
 ;(list <frame> ...)
 (define the-empty-environment '())
@@ -109,7 +137,7 @@
 ;'foo
 (define [variable? elt] [symbol? elt])
 (define [analyze-variable variable]
-  (lambda [env] (lookup-variable-value variable env)))
+  (lambda [env] (force-it (lookup-variable-value variable env))))
 (define [eval-variable variable env] ((analyze-variable variable) env))
 
 ;Define tagged expr lookup table and its register, lookup interface
@@ -194,8 +222,8 @@
         [alternative (analyze (if-alternative if-expr))])
     (lambda [env]
       (if (predicate env)
-        (consequent env)
-        (alternative env)))))
+        (delay-it consequent env)
+        (delay-it alternative env)))))
 (define [eval-if-expr if-expr env] ((analyze-if-expr if-expr) env))
 (register-tagged-expr-analyze 'if analyze-if-expr)
 
@@ -529,6 +557,7 @@
         (cons '- -)
         (cons '* *)
         (cons '/ /)
+        (cons '= =)
         (cons 'append append)
         ;More here
         ))
@@ -568,11 +597,19 @@
 
       (iter analyzed-args))))
 
-(define [analyze-procedure proc-expr]
+(define [analyze-primitive-procedure proc-expr]
   (let ([proc-name (analyze (proc-name proc-expr))]
         [proc-arguments (map analyze (proc-arguments proc-expr))])
     (lambda [env]
-      (apply (proc-name env) (map (lambda [arg] (arg env)) proc-arguments)))))
+      (apply (proc-name env)
+             (map (lambda [arg] (if [thunk? arg] (force-it arg) (arg env)))
+                  proc-arguments)))))
+(define [analyze-compound-procedure proc-expr]
+  (let ([proc-name (analyze (proc-name proc-expr))]
+        [proc-arguments (map analyze (proc-arguments proc-expr))])
+    (lambda [env]
+      (apply (proc-name env)
+             (map (lambda [arg] (delay-it arg env)) proc-arguments)))))
 (define [eval-exprs exprs env]
   (let ([analyzed-exprs (map analyze exprs)])
     (lambda [env] (map (lambda [expr] (expr env)) analyzed-exprs))))
@@ -583,7 +620,8 @@
         ([variable? expr] (analyze-variable expr))
         ([tagged-expr? expr]
          ((search-tag-expr-analyze (tagged-expr-tag expr)) expr))
-        ([generic-procedure? expr] (analyze-procedure expr))
+        ([primitive-procedure? expr] (analyze-primitive-procedure expr))
+        ([compound-procedure? expr] (analyze-compound-procedure expr))
         (else (error "unknown expression type -- EVLT" expr))))
 (define [evlt expr env] ((analyze expr) env))
 
@@ -592,7 +630,6 @@
 
 ;Generic apply
 (define [aply procedure arguments]
-  (display procedure)
   (cond ([memq procedure primitive-names]
          (apply-primitive-procedure procedure arguments))
         (else
@@ -610,12 +647,12 @@
 (define [user-print object] (display object))
 
 (define [driver-loop]
-  (define input-prompt ";;; M-Eval input:")
-  (define output-prompt ";;; M-Eval value:")
+  (define input-prompt ";;; L-Eval input:")
+  (define output-prompt ";;; L-Eval value:")
 
   (prompt-for-input input-prompt)
   (let ([input (read)])
-    (let ([output [evlt input the-global-environment]])
+    (let ([output (force-it (evlt input the-global-environment))])
       (announce-output output-prompt)
       (user-print output)))
   driver-loop)
@@ -636,3 +673,15 @@
 ;;;; M-Eval value:
 ;(a b c d e f)
 ;
+;;;; L-Eval input:
+;(define (try a b)
+;  (if [= a 0] 1 b))
+;
+;;;; L-Eval value:
+;ok
+;
+;;;; L-Eval input:
+;(try 0 (/ 1 0))
+;
+;;;; L-Eval value:
+;1
