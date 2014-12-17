@@ -71,26 +71,41 @@ def known(words):
     return set(w for w in words if w in NWORDS)
 
 def correct(word):
-    candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
+    candidates = known([word]) or \
+                 known(edits1(word)) or \
+                 known_edits2(word) or \
+                 [word]
     return max(candidates, key=NWORDS.get)
 #------------------------- Spell Corrector End --------------------------------
 
 #----------------------------- Tests Begin ------------------------------------
 
+#tests {<target> : [<incorrect instance> ...], ...}
 def spelltest(tests, bias=0, verbose=False):
     import time
-    n, bad, unknown, start = 0, 0, 0, time.clock()
+    total_count = 0
+    bad_count = 0
+    unknown_count = 0
+    start_time = time.clock()
+
     if bias:
         for target in tests: NWORDS[target] += bias
+
     for target, wrongs in tests.items():
-        for wrong in wrongs.split():
-            n += 1
-            w = correct(wrong)
-            if w!=target:
-                bad += 1
-                unknown += (target not in NWORDS)
-                if verbose:
-                    print 'correct(%r) => %r (%d); expected %r (%d)' % (
-                        wrong, w, NWORDS[w], target, NWORDS[target])
-    return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n), 
-                unknown=unknown, secs=int(time.clock()-start) )
+        for wrong_word in wrongs.split():
+            total_count += 1
+            corrected_word = correct(wrong_word)
+            if corrected_word != target:
+                bad_count += 1
+            if (target not in NWORDS):
+                unknown_count += 1
+            if verbose:
+                print "correct(%r) => %r (%d); expected %r (%d)" \
+                        % (wrong_word, corrected_word, NWORDS[corrected_word],
+                           target, NWORDS[target])
+    return dict(bad_count=bad_count,
+                total_count=total_count,
+                bias=bias,
+                good_percent=int(100.0 - 100.0 * bad_count / total_count),
+                unknown_count=unknown_count,
+                secs=int(time.clock() - start_time))
