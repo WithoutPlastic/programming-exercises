@@ -2,13 +2,18 @@
 
 ;Frame in environment operation
 ;(list <var val> ...)
-(define [make-frame vv-pairs] vv-pairs)
-(define [frame-variables frame] (map car frame))
-(define [frame-values frame] (map cdr frame))
-(define [first-pair vv-pairs] (car vv-pairs))
-(define [rest-pairs vv-pairs] (cdr vv-pairs))
-(define [add-binding-to-frame variable value frame]
-  (cons (cons variable value) frame))
+(define [make-frame vv-pairs]
+  (define [list->mlist pairs]
+    (if [null? pairs]
+      '()
+      (mcons (car pairs) (list->mlist (cdr pairs)))))
+  (if [list? vv-pairs] (list->mlist vv-pairs) vv-pairs))
+(define [frame-variables frame] (map vv-pair-variable frame))
+(define [frame-values frame] (map vv-pair-value frame))
+(define [first-pair vv-pairs] (mcar vv-pairs))
+(define [rest-pairs vv-pairs] (mcdr vv-pairs))
+(define [add-binding-to-frame! variable value frame env]
+  (set-mcar! env (mcons (make-vv-pair variable value) frame)))
 
 ;Variable value pair, same to pa-pairs
 (define [make-vv-pair variable value] (mcons variable value))
@@ -55,56 +60,53 @@
 ;Environment
 ;(list <frame> ...)
 (define the-empty-environment '())
-(define [first-frame env] (car env))
-(define [rest-frames env] (cdr env))
+(define [first-frame env] (mcar env))
+(define [rest-frames env] (mcdr env))
 (define enclosing-environment rest-frames)
 (define [extend-environment vv-pairs base-env]
-  (cons (make-frame vv-pairs) base-env))
+  (mcons (make-frame vv-pairs) base-env))
 (define [env-variable-operation variable env founded-proc not-founded-proc]
   (define deepest-frame (first-frame env))
   (define [frame-iter enclosing-env]
-    (if [eq? enclosing-env the-empty-environment]
-      (not-founded-proc deepest-frame)
-      (inner-frame-iter (first-frame enclosing-env))))
-  (define [inner-frame-iter vv-pairs]
-    (cond ([null? vv-pairs]
-           (frame-iter (enclosing-environment env)))
-          ([eq? (car (first-pair vv-pairs)) variable]
-           (founded-proc (first-pair vv-pairs)))
-          (else (inner-frame-iter (rest-pairs vv-pairs)))))
+    (define [inner-frame-iter vv-pairs]
+      (cond ([null? vv-pairs]
+             (frame-iter (enclosing-environment enclosing-env)))
+            ([eq? (vv-pair-variable (first-pair vv-pairs)) variable]
+             (founded-proc (first-pair vv-pairs)))
+            (else (inner-frame-iter (rest-pairs vv-pairs)))))
+
+    (cond ([eq? enclosing-env the-empty-environment]
+           (not-founded-proc deepest-frame env))
+          (else (inner-frame-iter (first-frame enclosing-env)))))
   
   (frame-iter env))
 (define [lookup-variable-value variable env]
   (env-variable-operation
     variable
     env
-    (lambda [pair]
-      (if [eq? (cdr pair) '*unassigned]
-        (error "met unassigned variable -- LOOKUP-VARIABLE-VALUE" variable)
-        (cdr pair)))
-    (lambda [frame] (error "variable not founded -- LOOKUP-VARIABLE-VALUE"
+    (lambda [pair] (vv-pair-value pair))
+    (lambda [frame env] (error "variable not founded -- LOOKUP-VARIABLE-VALUE"
                            variable))))
 (define [set-variable-value! variable new-value env]
   (env-variable-operation
     variable
     env
     (lambda [pair] (set-vv-pair-value! pair new-value))
-    (lambda [frame] (error "variable not founded -- SET-VARIABLE-VALUE!"
+    (lambda [frame env] (error "variable not founded -- SET-VARIABLE-VALUE!"
                            variable))))
 (define [define-variable! variable init-value env]
   (env-variable-operation
     variable
     env
-    (lambda [pair] (error "duplicated variable definition -- DEFINE-VARIABLE!"
-                          variable))
-    (lambda [frame] (add-binding-to-frame variable init-value frame))))
+    (lambda [pair] (set-vv-pair-value! pair init-value))
+      ;(error "duplicated variable definition -- DEFINE-VARIABLE!" variable))
+    (lambda [frame env] (add-binding-to-frame! variable init-value frame env))))
 (define [setup-environment]
   (let ([init-env (extend-environment primitive-table the-empty-environment)])
     (define-variable! 'true #t init-env)
     (define-variable! 'false #f init-env)
-    (define-variable! '#t #t init-env)
-    (define-variable! '#f #f init-env)
     (define-variable! 'void void init-env)
+    (display init-env)
     init-env))
 
 ;Only deepest frame should be operate by make-unbound! To modify other frame
@@ -222,8 +224,8 @@
         [alternative (analyze (if-alternative if-expr))])
     (lambda [env]
       (if (predicate env)
-        (delay-it consequent env)
-        (delay-it alternative env)))))
+        (consequent env)
+        (alternative env)))))
 (define [eval-if-expr if-expr env] ((analyze-if-expr if-expr) env))
 (register-tagged-expr-analyze 'if analyze-if-expr)
 
@@ -280,12 +282,12 @@
         (if [and [else-clause? first-clause] [not [null? rest-clause]]]
           (error "cond else clause followed by clause -- EXPAND-CLAUSES")
           (make-if-expr (if [else-clause? first-clause]
-                          '#t
+                          'true
                           (clause-predicate first-clause))
                         (make-begin-expr (clause-consequents first-clause))
                         (expand-clauses (cdr clauses))))))
 
-    (if [null? clauses] (void) (expand)))
+    (if [null? clauses] 'false (expand)))
 
   (expand-clauses (cond-clauses cond-expr)))
 (define [analyze-cond-expr cond-expr]
@@ -329,7 +331,8 @@
         (if [= (length args) (length (lambda-parameters lambda-expr))]
           (eval-exprs analyzed-exprs
                       (extend-environment
-                        (map (lambda [var val] (cons var val)) parameters args)
+                        (map (lambda [var val] (make-vv-pair var val))
+                             parameters args)
                         env))
           (error "parameters and arguments inconsist -- EVAL-LAMBDA-EXPR"))))))
 (define [eval-lambda-expr lambda-expr env]
@@ -356,16 +359,15 @@
           (else (error "invalid define expression -- DEFINITION-VARIABLE"
                        first-elt)))))
 (define [definition-value definition-expr]
-  (define [proc-default-style first-elt second-elt] second-elt)
-  (define [proc-non-default-style first-elt second-elt]
-    (make-lambda-expr (cdr first-elt) second-elt))
+  (define [proc-default-style body] (cadr body))
+  (define [proc-non-default-style body]
+    (make-lambda-expr (cdar body) (cdr body)))
 
-  (let ([first-elt (car (tagged-expr-body definition-expr))]
-        [second-elt (cadr (tagged-expr-body definition-expr))])
-    (cond ([symbol? first-elt] (proc-default-style first-elt second-elt))
-          ([pair? first-elt] (proc-non-default-style first-elt second-elt))
-          (else (error "invalid define expression -- DEFINITION-VALUE"
-                       second-elt)))))
+  (let* ([definition-body (tagged-expr-body definition-expr)]
+         [first-elt (car definition-body)])
+    (cond ([symbol? first-elt] (proc-default-style definition-body))
+          ([pair? first-elt] (proc-non-default-style definition-body))
+          (else (error "invalid define expression -- DEFINITION-VALUE")))))
 (define [analyze-definition-expr definition-expr]
   (let ([variable (definition-variable definition-expr)]
         [value (analyze (definition-value definition-expr))])
@@ -549,20 +551,21 @@
 
 ;Primitive table for mapping uplayer racket to underlayer racket
 (define primitive-table
-  (list (cons 'car car)
-        (cons 'cdr cdr)
-        (cons 'cons cons)
-        (cons 'null? null?)
-        (cons '+ +)
-        (cons '- -)
-        (cons '* *)
-        (cons '/ /)
-        (cons '= =)
-        (cons 'append append)
+  (list (make-vv-pair 'car car)
+        (make-vv-pair 'cdr cdr)
+        ;(make-vv-pair 'cons cons)
+        (make-vv-pair 'null? null?)
+        (make-vv-pair '+ +)
+        (make-vv-pair '- -)
+        (make-vv-pair '* *)
+        (make-vv-pair '/ /)
+        (make-vv-pair '= =)
+        (make-vv-pair 'append append)
+        (make-vv-pair 'display display)
         ;More here
         ))
-(define primitive-names (map car primitive-table))
-(define primitive-objects (map cdr primitive-table))
+(define primitive-names (map vv-pair-variable primitive-table))
+(define primitive-objects (map vv-pair-value primitive-table))
 
 ;Procedure
 ;(proc-name arg ...)
@@ -577,7 +580,8 @@
   (and [pair? expr] [not [tagged-expr? expr]]))
 (define [primitive-procedure? expr]
   (and [generic-procedure? expr] [memq (car expr) primitive-names]))
-(define [compound-procedure? expr] [and [pair? expr] [pair? [car expr]]])
+(define [compound-procedure? expr]
+  [and [generic-procedure? expr] [not [primitive-procedure? expr]]])
 (define [user-procedure? expr]
   [and [generic-procedure? expr]
        [not [primitive-procedure? expr]]
@@ -655,33 +659,5 @@
     (let ([output (force-it (evlt input the-global-environment))])
       (announce-output output-prompt)
       (user-print output)))
-  driver-loop)
+  (driver-loop))
 (driver-loop)
-
-;;;; M-Eval input:
-;(define [append x y]
-;  (if [null? x]
-;    y
-;    (cons (car x)
-;          (append (cdr x) y))))
-;;;; M-Eval value:
-;ok
-;
-;;;; M-Eval input;
-;(append '(a b c) '(d e f))
-;
-;;;; M-Eval value:
-;(a b c d e f)
-;
-;;;; L-Eval input:
-;(define (try a b)
-;  (if [= a 0] 1 b))
-;
-;;;; L-Eval value:
-;ok
-;
-;;;; L-Eval input:
-;(try 0 (/ 1 0))
-;
-;;;; L-Eval value:
-;1
