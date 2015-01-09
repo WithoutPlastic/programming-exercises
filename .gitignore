@@ -1,0 +1,4 @@
+*.bak
+*.org
+rust/*/target
+rust/*/Cargo.lock
