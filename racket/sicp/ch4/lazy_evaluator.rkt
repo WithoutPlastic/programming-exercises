@@ -9,101 +9,86 @@
   (set-mcar! vv-pair new-variable))
 (define [set-vv-pair-value! vv-pair new-value]
   (set-mcdr! vv-pair new-value))
+(define the-empty-vv-pair (mcons '() '()))
 
 (define make-pa-pair make-vv-pair)
 (define pa-pair-parameter vv-pair-variable)
 (define pa-pair-argument vv-pair-value)
 (define set-pa-pair-parameter! set-vv-pair-variable!)
 (define set-pa-pair-argument! set-vv-pair-value!)
-(provide (all-defined-out))
+(define the-empty-pa-pair (mcons '() '()))
 
 ;Frame is a chain list of vv-pair
-(define the-empty-frame (mcons '() '()))
+(define the-empty-frame (mcons 'frame '()))
+(define [get-empty-frame] (mcons 'frame '()))
+(define [frame-payload frame] (mcdr frame))
 (define [the-empty-frame? frame]
-  [and [mpair? frame] [eq? (mcar frame) '()] [eq? (mcdr frame) '()]])
+  [and [mpair? frame]
+       [eq? (mcar frame) 'frame]
+       [eq? (frame-payload frame) '()]])
 (define [make-frame vv-pairs]
   (define [iter remaining-pairs]
     (if [null? remaining-pairs]
       '()
       (mcons (car remaining-pairs) (iter (cdr remaining-pairs)))))
   (if [null? vv-pairs]
-    the-empty-frame
-    (iter vv-pairs)))
+    (get-empty-frame)
+    (mcons 'frame (iter vv-pairs))))
 (define [frame-copy frame]
-  (let ([vv-pairs (map make-vv-pair
-                       (frame-variables frame)
-                       (frame-values frame))])
+  (let ([vv-pairs (map make-vv-pair (frame-variables frame) (frame-values frame))])
     (make-frame vv-pairs)))
 (define [frame-search frame variable]
-  (define [iter remaining-frame]
+  (define [iter remaining]
     (define [continue]
-      (let ([first-pair (frame-head remaining-frame)])
+      (let ([first-pair (frame-head remaining)])
         (if [eq? (vv-pair-variable first-pair) variable]
           first-pair
-          (iter (frame-rest remaining-frame)))))
-    (if [null? remaining-frame]
+          (iter (frame-rest remaining)))))
+    (if [the-empty-frame? remaining]
       #f
       (continue)))
-  (if [the-empty-frame? frame]
-    #f
-    (iter frame)))
+  (iter frame))
 (define [frame-map proc frame]
-  (define [iter remaining-frame]
-    (if [null? remaining-frame]
+  (define [iter remaining]
+    (if [the-empty-frame? remaining]
       '()
-      (cons (proc (frame-head remaining-frame))
-            (iter (frame-rest remaining-frame)))))
-  (if [the-empty-frame? frame]
-    '()
-    (iter frame)))
+      (cons (proc (frame-head remaining))
+            (iter (frame-rest remaining)))))
+  (iter frame))
 (define [frame-variables frame] (frame-map vv-pair-variable frame))
 (define [frame-values frame] (frame-map vv-pair-value frame))
 (define [frame-head frame]
   (if [the-empty-frame? frame]
     (error "Access head of empty frame -- FRAME-HEAD")
-    (mcar frame)))
+    (mcar (frame-payload frame))))
 (define [frame-rest frame]
   (if [the-empty-frame? frame]
     (error "Access rest of empty frame -- FRAME-REST")
-    (mcdr frame)))
-(define [set-frame-head! frame new-value] (set-mcar! frame new-value))
-(define [set-frame-rest! frame new-value] (set-mcdr! frame new-value))
+    (mcons 'frame (mcdr (frame-payload frame)))))
+(define [set-frame-payload! frame new-value]
+  (set-mcdr! frame new-value))
+(define [set-frame-head! frame new-value]
+  (set-mcar! (frame-payload frame) new-value))
+(define [set-frame-rest! frame new-value]
+  (set-mcdr! (frame-payload frame) new-value))
 (define [frame-add! frame vv-pair]
-  (define [non-empty-frame-add!]
-    (let* ([old-frame (frame-copy frame)])
-      (set-frame-head! frame vv-pair)
-      (set-frame-rest! frame old-frame)))
-  (define [empty-frame-add!] (set-frame-head! frame vv-pair))
-  (if [the-empty-frame? frame]
-    (empty-frame-add!)
-    (non-empty-frame-add!)))
+  (let ([new-pair (mcons vv-pair (frame-payload frame))])
+    (set-frame-payload! frame new-pair)))
 (define [frame-remove! frame variable]
-  (define [frame-head-match? test-frame]
-    [eq? (vv-pair-variable (frame-head test-frame)) variable])
-  (define [single-elements? frame] [null? (frame-rest frame)])
-  (define [iter last-frame]
-    (let* ([current-frame (frame-rest last-frame)]
-           [next-frame (frame-rest current-frame)])
-      (define [continue]
-        (if [frame-head-match? current-frame]
-          (set-frame-rest! last-frame next-frame)
-          (iter next-frame)))
+  (define [iter last-node remaining]
+    (cond ([the-empty-frame? remaining]
+           (error "remove variable failed, not founded -- FRAME-REMOVE!"))
+          ([eq? (vv-pair-variable (frame-head remaining)) variable]
+           (set-mcdr! last-node (frame-payload (frame-rest remaining))))
+          (else (iter (mcdr last-node) (frame-rest remaining)))))
+  (iter frame frame))
 
-      (if [null? current-frame]
-        (error "remove variable failed, not founded -- FRAME-REMOVE!")
-        (continue))))
+(define [add-binding-to-frame! frame variable value]
+  (frame-add! frame (make-vv-pair variable value)))
+(define [remove-binding-from-frame! frame variable]
+  (frame-remove! frame variable))
 
-  (cond ([the-empty-frame? frame]
-         (error "Remove element from a empty frame -- FRAME-REMOVE!"))
-        ([and [frame-head-match? frame] [single-elements? frame]]
-         (set-frame-head! frame '()))
-        ([and [frame-head-match? frame] [not [single-elements? frame]]]
-         (set-frame-head! frame (mcons '() '())))
-        (else (iter frame))))
-
-;(define [add-binding-to-frame! variable value frame env]
-;  (set-mcar! env (mcons (make-vv-pair variable value) frame)))
-;
+(provide (all-defined-out))
 ;;Thunk object manipulation
 ;(define [make-thunk expr env] (cons 'thunk (cons expr env)))
 ;(define [thunk? object]
@@ -132,6 +117,8 @@
 ;        (else object)))
 ;(define [force-all objects] (map force-it objects))
 ;
+;
+
 ;;Environment
 ;;(list <frame> ...)
 ;(define the-empty-environment '())
