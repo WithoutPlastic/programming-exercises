@@ -7,14 +7,6 @@
     (car items)
     (list-ref (cdr items) (- n 1))))
 
-(define [map proc items]
-  (if [null? items]
-    '()
-    (cons (proc (car items)
-                (map proc (cdr items))))))
-
-(define [scale-list items factor] (map (lambda [x] (* x factor)) items))
-
 (define [add-lists list-a list-b]
   (cond ([null? list-a] list-b)
         ([null? list-b] list-a)
@@ -25,3 +17,24 @@
 (define integers (cons 1 (add-lists ones integers)))
 
 (list-ref integers 17)
+
+(define [map proc items]
+  (if [null? items]
+    '()
+    (cons (proc (car items))
+          (map proc (cdr items)))))
+(define [scale-list items factor] (map (lambda [x] (* x factor)) items))
+(define [integral integrand initial-value dt]
+  (define int
+    (cons initial-value
+          (add-lists (scale-list integrand dt)
+                     int)))
+  int)
+
+(define [solve f y0 dt]
+  (define y (integral dy y0 dt))
+  (define dy (map f y))
+  y)
+
+(list-ref (solve (lambda [x] x) 1 0.001) 1000)
+
