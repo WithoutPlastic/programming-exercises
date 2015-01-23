@@ -1,662 +1,736 @@
 #lang racket
 
-;Frame in environment operation
-;(list <var val> ...)
-(define [make-frame vv-pairs]
-  (define [list->mlist pairs]
-    (if [null? pairs]
-      '()
-      (mcons (car pairs) (list->mlist (cdr pairs)))))
-  (if [list? vv-pairs] (list->mlist vv-pairs) vv-pairs))
-(define [frame-variables frame] (map vv-pair-variable frame))
-(define [frame-values frame] (map vv-pair-value frame))
-(define [first-pair vv-pairs] (mcar vv-pairs))
-(define [rest-pairs vv-pairs] (mcdr vv-pairs))
-(define [add-binding-to-frame! variable value frame env]
-  (set-mcar! env (mcons (make-vv-pair variable value) frame)))
-
-;Variable value pair, same to pa-pairs
+;Data structure of variable-value pair
+;Data structure of parameter-argument pair
 (define [make-vv-pair variable value] (mcons variable value))
 (define [vv-pair-variable vv-pair] (mcar vv-pair))
 (define [vv-pair-value vv-pair] (mcdr vv-pair))
-(define [set-vv-pair-variable! vv-pair new-var] (set-mcar! vv-pair new-var))
-(define [set-vv-pair-value! vv-pair new-val] (set-mcdr! vv-pair new-val))
+(define [set-vv-pair-variable! vv-pair new-variable]
+  (set-mcar! vv-pair new-variable))
+(define [set-vv-pair-value! vv-pair new-value]
+  (set-mcdr! vv-pair new-value))
+(define the-empty-vv-pair (mcons '() '()))
 
-;Param arg pair, same to vv-pairs
-(define make-pa-pair make-vv-pair)
-(define pa-pair-parameter vv-pair-variable)
-(define pa-pair-argument vv-pair-value)
-(define set-pa-pair-parameter! set-vv-pair-variable!)
-(define set-pa-pair-argument! set-vv-pair-value!)
+(define [make-pa-pair param arg] (list param arg))
+(define [pa-pair-parameter pa-pair] (car pa-pair))
+(define [pa-pair-argument pa-pair] (cadr pa-pair))
+(define the-empty-pa-pair (list '() '()))
 
-;Thunk object manipulation
-(define [make-thunk expr env] (cons 'thunk (cons expr env)))
-(define [thunk? object]
-  [and [pair? object] [eq? (car object) 'thunk]])
-(define [thunk-expr thunk] (cadr thunk))
-(define [thunk-env thunk] (cddr thunk))
-
-(define [make-evaluated-thunk value] (cons 'evaluated-thunk value))
-(define [evaluated-thunk? object]
-  [and [pair? object] [eq? (car object) 'evaluated-thunk]])
-(define [evaluated-thunk-value evaluted-thunk] (cdr evaluted-thunk))
-
-(define [delay-it object env]
-  (cond ([not [thunk? object]] (make-thunk object env))
-        (else object)))
-(define [delay-all objects env] (map (lambda [x] (delay-it x env)) objects))
-(define [force-it object]
-  (define [thunk->evaluated!]
-    (let ([value ((thunk-expr object) (thunk-env object))])
-      (set! object (make-evaluated-thunk value))
-      value))
-  (define [return-value] (evaluated-thunk-value object))
-
-  (cond ([thunk? object] (thunk->evaluated!))
-        ([evaluated-thunk? object] (return-value))
-        (else object)))
-(define [force-all objects] (map force-it objects))
+;Frame is a chain list of vv-pair
+(define the-empty-frame (mcons 'frame '()))
+(define [get-empty-frame] (mcons 'frame '()))
+(define [frame? frame] [and [mpair? frame] [eq? (mcar frame) 'frame]])
+(define [frame-payload frame] (mcdr frame))
+(define [empty-frame? frame]
+  [and [frame? frame] [eq? (frame-payload frame) '()]])
+(define [make-frame vv-pairs]
+  (define [iter remaining-pairs]
+    (if [null? remaining-pairs]
+      '()
+      (mcons (car remaining-pairs) (iter (cdr remaining-pairs)))))
+  (mcons 'frame (iter vv-pairs)))
+(define [frame-map proc frame]
+  (define [iter remaining]
+    (if [empty-frame? remaining]
+      '()
+      (cons (proc (frame-head remaining)) (iter (frame-rest remaining)))))
+  (iter frame))
+(define [frame-variables frame] (frame-map vv-pair-variable frame))
+(define [frame-values frame] (frame-map vv-pair-value frame))
+(define [frame-head frame] (mcar (frame-payload frame)))
+(define [frame-rest frame] (mcons 'frame (mcdr (frame-payload frame))))
+(define [frame-copy frame]
+  (make-frame (map make-vv-pair (frame-variables frame) (frame-values frame))))
+(define [frame-search frame variable]
+  (define [iter remaining]
+    (cond ([empty-frame? remaining] #f)
+          ([eq? (vv-pair-variable (frame-head remaining)) variable]
+           (frame-head remaining))
+          (else (iter (frame-rest remaining)))))
+  (iter frame))
+(define [set-frame-payload! frame new-value] (set-mcdr! frame new-value))
+(define [set-frame-head! frame new-value] (set-mcar! (frame-payload frame) new-value))
+(define [set-frame-rest! frame new-value] (set-mcdr! (frame-payload frame) new-value))
+(define [frame-add! frame vv-pair]
+  (set-frame-payload! frame (mcons vv-pair (frame-payload frame))))
+(define [frame-remove! frame variable]
+  (define [iter last-node remaining]
+    (cond ([empty-frame? remaining]
+           (error "remove variable failed, not founded -- FRAME-REMOVE!"))
+          ([eq? (vv-pair-variable (frame-head remaining)) variable]
+           (set-mcdr! last-node (frame-payload (frame-rest remaining))))
+          (else (iter (mcdr last-node) (frame-rest remaining)))))
+  (iter frame frame))
+(define [add-binding-to-frame! frame variable value]
+  (frame-add! frame (make-vv-pair variable value)))
+(define [remove-binding-from-frame! frame variable] (frame-remove! frame variable))
 
 ;Environment
-;(list <frame> ...)
-(define the-empty-environment '())
-(define [first-frame env] (mcar env))
-(define [rest-frames env] (mcdr env))
-(define enclosing-environment rest-frames)
-(define [extend-environment vv-pairs base-env]
-  (mcons (make-frame vv-pairs) base-env))
-(define [env-variable-operation variable env founded-proc not-founded-proc]
-  (define deepest-frame (first-frame env))
-  (define [frame-iter enclosing-env]
-    (define [inner-frame-iter vv-pairs]
-      (cond ([null? vv-pairs]
-             (frame-iter (enclosing-environment enclosing-env)))
-            ([eq? (vv-pair-variable (first-pair vv-pairs)) variable]
-             (founded-proc (first-pair vv-pairs)))
-            (else (inner-frame-iter (rest-pairs vv-pairs)))))
-
-    (cond ([eq? enclosing-env the-empty-environment]
-           (not-founded-proc deepest-frame env))
-          (else (inner-frame-iter (first-frame enclosing-env)))))
-  
-  (frame-iter env))
-(define [lookup-variable-value variable env]
+;(chained <frame> ...)
+(define the-empty-environment (mcons 'environment '()))
+(define [environment-payload env] (mcdr env))
+(define [environment? env] [and [mpair? env] [eq? (mcar env) 'environment]])
+(define [empty-environment? env]
+  [and [environment? env] [eq? (environment-payload env) '()]])
+(define [env-head env]
+  (cond ([not [environment? env]]
+         (error "given a non environment -- ENV-HEAD"))
+        ([empty-environment? env]
+         (error "access head of a empty environment -- ENV-HEAD"))
+        (else (mcar (environment-payload env)))))
+(define current-frame env-head)
+(define [env-rest env]
+  (cond ([not [environment? env]]
+         (error "given a non environment -- ENV-REST"))
+        ([empty-environment? env]
+         (error "access rest of a empty environment -- ENV-REST"))
+        (else (mcons 'environment (mcdr (environment-payload env))))))
+(define enclosing-environment env-rest)
+(define [extend-environment base-env vv-pairs]
+  (if [environment? base-env]
+    (mcons 'environment
+           (mcons (make-frame vv-pairs)
+                  (environment-payload base-env)))
+    (error "given a non environment -- EXTEND-ENVIRONMENT")))
+(define [env-variable-operation env variable founded-proc not-founded-proc]
+  (define cframe (current-frame env))
+  (define [iter enclosing-env]
+    (define [frame-iter remaining-frame]
+      (cond ([empty-frame? remaining-frame]
+             (iter (enclosing-environment enclosing-env)))
+            ([eq? (vv-pair-variable (frame-head remaining-frame)) variable]
+             (founded-proc cframe (frame-head remaining-frame)))
+            (else (frame-iter (frame-rest remaining-frame)))))
+    (if [empty-environment? enclosing-env]
+      (not-founded-proc cframe env)
+      (frame-iter (env-head enclosing-env))))
+  (if [environment? env]
+    (iter env)
+    (error "given a non environment -- ENV-VARIABLE-OPERATION")))
+(define [lookup-variable-value env variable]
   (env-variable-operation
-    variable
     env
-    (lambda [pair] (vv-pair-value pair))
+    variable
+    (lambda [frame pair] (vv-pair-value pair))
     (lambda [frame env] (error "variable not founded -- LOOKUP-VARIABLE-VALUE"
                            variable))))
-(define [set-variable-value! variable new-value env]
+(define [set-variable-value! env variable new-value]
   (env-variable-operation
-    variable
     env
-    (lambda [pair] (set-vv-pair-value! pair new-value))
+    variable
+    (lambda [frame pair] (set-vv-pair-value! pair new-value))
     (lambda [frame env] (error "variable not founded -- SET-VARIABLE-VALUE!"
                            variable))))
-(define [define-variable! variable init-value env]
+(define [define-variable! env variable init-value]
   (env-variable-operation
-    variable
     env
-    (lambda [pair] (set-vv-pair-value! pair init-value))
+    variable
+    (lambda [frame pair] (add-binding-to-frame! frame variable init-value))
       ;(error "duplicated variable definition -- DEFINE-VARIABLE!" variable))
-    (lambda [frame env] (add-binding-to-frame! variable init-value frame env))))
-(define [setup-environment]
-  (let ([init-env (extend-environment primitive-table the-empty-environment)])
-    (define-variable! 'true #t init-env)
-    (define-variable! 'false #f init-env)
-    (define-variable! 'void void init-env)
-    (display init-env)
-    init-env))
+    (lambda [frame env] (add-binding-to-frame! frame variable init-value))))
 
-;Only deepest frame should be operate by make-unbound! To modify other frame
-;will increase complex and make security risk.
-(define [make-unbound-expr variable] (list 'unbound! variable))
-(define [unbound? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'unbound!])
-(define [unbound-variable unbound-expr] (cadr unbound-expr))
-(define [eval-unbound! unbound-expr env]
-  (define [not-founded-error]
-      (error "variable not founded -- MAKE-UNBOUND!"
-             (unbound-variable unbound-expr)))
-  (define [inner-frame-iter vv-pairs]
-    (cond ([null? vv-pairs] (not-founded-error))
-          ([eq? (car (first-pair vv-pairs)) (unbound-variable unbound-expr)]
-           (set-vv-pair-variable! (first-pair vv-pairs) '())
-           (set-vv-pair-value! (first-pair vv-pairs) '()))
-          (else (inner-frame-iter (rest-pairs vv-pairs)))))
-  (inner-frame-iter (first-frame env)))
+;Thunk object manipulation
+(define [make-thunk expr env]
+  (if [environment? env]
+    (mcons 'thunk (mcons expr env))
+    (error "given a non environment -- MAKE-THUNK")))
+(define [thunk? object] [and [mpair? object] [eq? (mcar object) 'thunk]])
+(define [thunk-expr thunk] (mcar (mcdr thunk)))
+(define [thunk-env thunk] (mcdr (mcdr thunk)))
+(define [thunk->evaluated! tk]
+  (let ([value (force-it (evlt (thunk-expr tk) (thunk-env tk)))])
+    (set-mcar! tk 'evaluated-thunk)
+    (set-mcar! (mcdr tk) value)
+    (set-mcdr! (mcdr tk) '())
+    value))
+(define [evaluated-thunk? object]
+  [and [mpair? object] [eq? (mcar object) 'evaluated-thunk]])
+(define [evaluated-thunk-value evaluted-thunk] (mcar (mcdr evaluted-thunk)))
+(define [delay-it object env]
+  (cond ([not [environment? env]] (error "given a non environment -- DELAY-IT"))
+        ([thunk? object] object)
+        (else (make-thunk object env))))
+(define [force-it object]
+  (cond ([thunk? object] (thunk->evaluated! object))
+        ([evaluated-thunk? object] (evaluated-thunk-value object))
+        (else object)))
 
-;Self evaluation elements
-;"hello world"
-;123
-(define [self-evaluating? elt] [or [number? elt] [string? elt]])
-(define [analyze-self-evaluating expr] (lambda [env] expr))
-(define [eval-self-evalutating self-evaluating env]
-  ((analyze-self-evaluating self-evaluating) env))
+;Define input->tagged-expr proc table
+(define input->tagged-expr-list '())
+(define [add-input->tagged-expr-proc proc]
+  (set! input->tagged-expr-list (cons proc input->tagged-expr-list )))
+(define [input->tagged-expr input]
+  [ormap (lambda [x] (x input)) 
+         (append (filter (lambda [x] [not [eq? x input->procedure-expr]])
+                      input->tagged-expr-list)
+                 (filter (lambda [x] [eq? x input->procedure-expr])
+                      input->tagged-expr-list))])
 
-;Those symbol is presented with ('quote x)
-;Individual symbol indicate a variable in environment
-;'foo
-(define [variable? elt] [symbol? elt])
-(define [analyze-variable variable]
-  (lambda [env] (force-it (lookup-variable-value variable env))))
-(define [eval-variable variable env] ((analyze-variable variable) env))
-
-;Define tagged expr lookup table and its register, lookup interface
+;Define tagged expr analyze proc table
 (define tagged-expr-analyze-table (make-hash))
-(define [register-tagged-expr-analyze tag eval-proc]
-  (hash-set! tagged-expr-analyze-table tag eval-proc))
-(define [search-tag-expr-analyze tag] (hash-ref tagged-expr-analyze-table tag))
+(define [register-tagged-expr-analyze tag analyze-proc]
+  (hash-set! tagged-expr-analyze-table tag analyze-proc))
+(define [get-tagged-expr-analyze tag] (hash-ref tagged-expr-analyze-table tag))
 
-;Tagged-expr processing
+;Define tagged expr eval proc table
+(define tagged-expr-eval-table (make-hash))
+(define [register-tagged-expr-eval tag eval-proc]
+  (hash-set! tagged-expr-eval-table tag eval-proc))
+(define [get-tagged-expr-eval tag] (hash-ref tagged-expr-eval-table tag))
+
+;Tagged expr processing
 (define [tagged-expr-tag tagged-expr] (car tagged-expr))
 (define [tagged-expr-body tagged-expr] (cdr tagged-expr))
 (define [tagged-expr? elt]
-  [and [pair? elt]
-       [hash-has-key? tagged-expr-analyze-table (tagged-expr-tag elt)]])
+  [and [pair? elt] [symbol? (car elt)]])
 (define [tagged-expr-tag-eq? tagged-expr tag]
-  [eq? (tagged-expr-tag tagged-expr) tag])
+  [and [tagged-expr? tagged-expr] [eq? (tagged-expr-tag tagged-expr) tag]])
 
-;Quote tag expr
-;('quote text)
-(define [make-quote-expr text] (list 'quote text))
-(define [quote-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'quote])
-(define [quote-text tagged-expr] (car (tagged-expr-body tagged-expr)))
-(define [analyze-quote-expr quote-expr] (lambda [env] (quote-text quote-expr)))
-(define [eval-quote-expr quote-expr env] ((analyze-quote-expr quote-expr) env))
-(register-tagged-expr-analyze 'quote analyze-quote-expr)
+;Boolean test
+(define [is-false? object] [eq? object false])
+(define [is-true? object] [not [is-false? object]])
 
-;And tag expr
-;('and <expr> ...)
-(define [make-and-expr cond-exprs] (cons 'and cond-exprs))
-(define [and-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'and])
-(define [and-cond-exprs and-expr] (tagged-expr-body and-expr))
+;Number expr
+(define [make-number-expr number] (cons 'number-expr number))
+(define [number-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'number-expr])
+(define [number-expr-value number-expr] (tagged-expr-body number-expr))
+(define [input->number-expr input]
+  [and [number? input] (make-number-expr input)])
+(add-input->tagged-expr-proc input->number-expr)
+(define [analyze-number-expr number-expr] number-expr)
+(register-tagged-expr-analyze 'number-expr analyze-number-expr)
+(define [eval-number-expr analyzed-number-expr env]
+  (number-expr-value analyzed-number-expr))
+(register-tagged-expr-eval 'number-expr eval-number-expr)
+
+;String expr
+(define [make-string-expr str] (cons 'string-expr str))
+(define [string-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'string-expr])
+(define [string-expr-value string-expr] (tagged-expr-body string-expr))
+(define [input->string-expr input]
+  [and [string? input] (make-string-expr input)])
+(add-input->tagged-expr-proc input->string-expr)
+(define [analyze-string-expr string-expr] string-expr)
+(register-tagged-expr-analyze 'string-expr analyze-string-expr)
+(define [eval-string-expr analyzed-string-expr env]
+  (string-expr-value analyzed-string-expr))
+(register-tagged-expr-eval 'string-expr eval-string-expr)
+
+;Quote expr
+(define [make-quote-expr texts] (cons 'quote-expr texts))
+(define [quote-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'quote-expr])
+(define [quote-expr-text quote-expr] (tagged-expr-body quote-expr))
+(define [input->quote-expr input]
+  [and [list? input] [= (length input) 2] [eq? (car input) 'quote]
+       (make-quote-expr (cadr input))])
+(add-input->tagged-expr-proc input->quote-expr)
+(define [analyze-quote-expr quote-expr] quote-expr)
+(register-tagged-expr-analyze 'quote-expr analyze-quote-expr)
+(define [eval-quote-expr analyzed-quote-expr env]
+  (quote-expr-text analyzed-quote-expr))
+(register-tagged-expr-eval 'quote-expr eval-quote-expr)
+
+;Variable expr
+(define [make-variable-expr symbol] (cons 'variable-expr symbol))
+(define [variable-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'variable-expr])
+(define [variable-expr-symbol variable-expr] (tagged-expr-body variable-expr))
+(define [input->variable-expr input]
+  [and [symbol? input] (make-variable-expr input)])
+(add-input->tagged-expr-proc input->variable-expr)
+(define [analyze-variable-expr variable-expr] variable-expr)
+(register-tagged-expr-analyze 'variable-expr analyze-variable-expr)
+(define [eval-variable-expr analyzed-variable-expr env]
+  (lookup-variable-value env (variable-expr-symbol analyzed-variable-expr)))
+(register-tagged-expr-eval 'variable-expr eval-variable-expr)
+
+(define [self-evaluate-expr? tagged-expr]
+  [or [number-expr? tagged-expr] [string-expr? tagged-expr]
+      [quote-expr? tagged-expr] [variable-expr? tagged-expr]])
+
+;And expr
+(define [make-and-expr cdts] (cons 'and-expr cdts))
+(define [and-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'and-expr])
+(define [and-expr-cond-exprs and-expr] (tagged-expr-body and-expr))
+(define [input->and-expr input]
+  [and [list? input] [not [null? input]] [eq? (car input) 'and]
+       (make-and-expr (map input->tagged-expr (cdr input)))])
+(add-input->tagged-expr-proc input->and-expr)
 (define [analyze-and-expr and-expr]
-  (let ([analyzed-conds (map analyze (and-cond-exprs and-expr))])
-    (lambda [env]
-      (define [iter remaining-conds]
-        (let* ([first-cond (car remaining-conds)]
-               [rest-conds (cdr remaining-conds)]
-               [first-cond-return (first-cond env)])
-          (cond (first-cond-return #f)
-                ([null? rest-conds] first-cond-return)
-                (else (iter rest-conds)))))
+  (let ([analyzed-conds (map analyze (and-expr-cond-exprs and-expr))])
+    (make-and-expr analyzed-conds)))
+(register-tagged-expr-analyze 'and-expr analyze-and-expr)
+(define [eval-and-expr analyzed-and-expr env]
+  [andmap (lambda [cdt] [is-true? (force-it (evlt cdt env))])
+          (and-expr-cond-exprs analyzed-and-expr)])
+(register-tagged-expr-eval 'and-expr eval-and-expr)
 
-      (if [null? analyzed-conds]
-        #t
-        (iter analyzed-conds)))))
-(define [eval-and-expr and-expr env] ((analyze-and-expr and-expr) env))
-(register-tagged-expr-analyze 'and analyze-and-expr)
-
-;Or tag expr
-;('or <expr> ...)
-(define [make-or-expr cond-exprs] (cons 'or cond-exprs))
-(define [or? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'or])
-(define [or-cond-exprs or-expr] (tagged-expr-body or-expr))
+;Or expr
+(define [make-or-expr cdts] (cons 'or-expr cdts))
+(define [or-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'or-expr])
+(define [or-expr-cond-exprs or-expr] (tagged-expr-body or-expr))
+(define [input->or-expr input]
+  [and [list? input] [not [null? input]] [eq? (car input) 'or]
+       (make-or-expr (map input->tagged-expr (cdr input)))])
+(add-input->tagged-expr-proc input->or-expr)
 (define [analyze-or-expr or-expr]
-  (let ([analyzed-conds (map analyze (or-cond-exprs or-expr))])
-    (lambda [env]
-      (define [iter remaining-conds]
-        (let* ([first-cond (car remaining-conds)]
-               [rest-conds (cdr remaining-conds)]
-               [first-cond-return (first-cond env)])
-          (cond (first-cond-return #t)
-                ([null? rest-conds] #f)
-                (else (iter rest-conds)))))
-      
-      (if [null? analyzed-conds]
-        #f
-        (iter analyzed-conds)))))
-(define [eval-or-expr or-expr env] ((analyze-or-expr or-expr) env))
-(register-tagged-expr-analyze 'or analyze-or-expr)
+  (let ([analyzed-conds (map analyze (or-expr-cond-exprs or-expr))])
+    (make-or-expr analyzed-conds)))
+(register-tagged-expr-analyze 'or-expr analyze-or-expr)
+(define [eval-or-expr analyzed-or-expr env]
+  [ormap (lambda [cdt] [is-true? (force-it (evlt cdt env))])
+         (or-expr-cond-exprs analyzed-or-expr)])
+(register-tagged-expr-eval 'or-expr eval-or-expr)
 
-;If tag expr
-;('if <predicate> <consequent> <alternative>)
+;If expr
 (define [make-if-expr predicate consequent alternative]
-  (list 'if predicate consequent alternative))
-(define [if? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'if])
-(define [if-predicate if-expr] (car (tagged-expr-body if-expr)))
-(define [if-consequent if-expr] (cadr (tagged-expr-body if-expr)))
-(define [if-alternative if-expr] (caddr (tagged-expr-body if-expr)))
+  (cons 'if-expr (cons predicate (cons consequent alternative))))
+(define [if-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'if-expr])
+(define [if-expr-predicate if-expr] (car (tagged-expr-body if-expr)))
+(define [if-expr-consequent if-expr] (cadr (tagged-expr-body if-expr)))
+(define [if-expr-alternative if-expr] (cddr (tagged-expr-body if-expr)))
+(define [input->if-expr input]
+  [and [list? input] [= (length input) 4] [eq? (car input) 'if]
+       (make-if-expr (input->tagged-expr (cadr input))
+                     (input->tagged-expr (caddr input))
+                     (input->tagged-expr (cadddr input)))])
+(add-input->tagged-expr-proc input->if-expr)
 (define [analyze-if-expr if-expr]
-  (let ([predicate (analyze (if-predicate if-expr))]
-        [consequent (analyze (if-consequent if-expr))]
-        [alternative (analyze (if-alternative if-expr))])
-    (lambda [env]
-      (if (predicate env)
-        (consequent env)
-        (alternative env)))))
-(define [eval-if-expr if-expr env] ((analyze-if-expr if-expr) env))
-(register-tagged-expr-analyze 'if analyze-if-expr)
+  (let ([predicate (analyze (if-expr-predicate if-expr))]
+        [consequent (analyze (if-expr-consequent if-expr))]
+        [alternative (analyze (if-expr-alternative if-expr))])
+    (make-if-expr predicate consequent alternative)))
+(register-tagged-expr-analyze 'if-expr analyze-if-expr)
+(define [eval-if-expr analyzed-if-expr env]
+  (if [is-true? (force-it (evlt (if-expr-predicate analyzed-if-expr) env))]
+    (evlt (if-expr-consequent analyzed-if-expr) env)
+    (evlt (if-expr-alternative analyzed-if-expr) env)))
+(register-tagged-expr-eval 'if-expr eval-if-expr)
 
-;When tag expr
-;('when <predicate> <consequent>)
+;When expr
 (define [make-when-expr predicate consequent]
-  (list 'when predicate consequent))
-(define [when? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'when])
-(define [when-predicate when-expr] (car (tagged-expr-body when-expr)))
-(define [when-consequent when-expr] (cadr (tagged-expr-body when-expr)))
+  (cons 'when-expr (cons predicate consequent)))
+(define [when-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'when-expr])
+(define [when-expr-predicate when-expr] (car (tagged-expr-body when-expr)))
+(define [when-expr-consequent when-expr] (cdr (tagged-expr-body when-expr)))
+(define [input->when-expr input]
+  [and [list? input] [= (length input) 3] [eq? (car input) 'when]
+       (make-when-expr (input->tagged-expr (cadr input))
+                       (input->tagged-expr (caddr input)))])
+(add-input->tagged-expr-proc input->when-expr)
 (define [analyze-when-expr when-expr]
-  (let ([predicate (analyze (when-predicate when-expr))]
-        [consequent (analyze (when-consequent when-expr))])
-    (lambda [env]
-      (when (predicate env)
-        (consequent env)))))
-(define [eval-when-expr when-expr env] ((analyze-when-expr when-expr) env))
-(register-tagged-expr-analyze 'when analyze-when-expr)
+  (let ([predicate (analyze (when-expr-predicate when-expr))]
+        [consequent (analyze (when-expr-consequent when-expr))])
+    (make-when-expr predicate consequent)))
+(register-tagged-expr-analyze 'when-expr analyze-when-expr)
+(define [eval-when-expr analyzed-when-expr env]
+  (when [is-true? (force-it (evlt (when-expr-predicate analyzed-when-expr) env))]
+    (evlt (when-expr-consequent analyzed-when-expr) env)))
+(register-tagged-expr-eval 'when-expr eval-when-expr)
 
-;Unless tag expr
-;('unless <predicate> <alternative>)
+;Unless expr
 (define [make-unless-expr predicate alternative]
   (cons 'unless (cons predicate alternative)))
-(define [unless? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'unless])
-(define [unless-predicte unless-expr] (car (tagged-expr-body unless-expr)))
-(define [unless-alternative unless-expr] (cadr (tagged-expr-body unless-expr)))
+(define [unless-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'unless])
+(define [unless-expr-predicte unless-expr] (car (tagged-expr-body unless-expr)))
+(define [unless-expr-alternative unless-expr] (cdr (tagged-expr-body unless-expr)))
+(define [input->unless-expr input]
+  [and [list? input] [= (length input) 3] [eq? (car input) 'unless]
+       (make-unless-expr (input->tagged-expr (cadr input))
+                         (input->tagged-expr (caddr input)))])
+(add-input->tagged-expr-proc input->unless-expr)
 (define [analyze-unless-expr unless-expr]
-  (let ([predicate (analyze (unless-predicte unless-expr))]
-        [alternative (analyze (unless-alternative unless-expr))])
-    (lambda [env]
-      (unless (predicate env)
-        (alternative env)))))
-(define [eval-unless-expr unless-expr env]
-  ((analyze-unless-expr unless-expr) env))
+  (let ([predicate (analyze (unless-expr-predicte unless-expr))]
+        [alternative (analyze (unless-expr-alternative unless-expr))])
+    (make-unless-expr predicate alternative)))
 (register-tagged-expr-analyze 'unless analyze-unless-expr)
+(define [eval-unless-expr analyzed-unless-expr env]
+  (unless [is-true? (force-it (evlt (unless-expr-predicte analyzed-unless-expr) env))]
+    (evlt (unless-expr-alternative analyzed-unless-expr) env)))
+(register-tagged-expr-eval 'unless eval-unless-expr)
 
-;Cond clause , nested in cond tag expr
-;(<cond> <expr> ...)
-(define [make-clause predicate consequents] (cons predicate consequents))
-(define [clause-predicate clause] (car clause))
-(define [clause-consequents clause] (cdr clause))
-;(#t <expr> ...)
-(define [else-clause? clause] [eq? (clause-predicate clause) 'else])
-;Cond tag expr
-;('cond ((<cond> <expr> ...) ...))
-(define [make-cond-expr clauses] (cons 'cond clauses))
-(define [cond? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'cond])
-(define [cond-clauses cond-expr] (tagged-expr-body cond-expr))
+;Cond clause expr
+(define [make-cond-clause-expr predicate begin-expr]
+  (cons 'cond-clause-expr (cons predicate begin-expr)))
+(define [cond-clause-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'cond-clause-expr])
+(define [cond-clause-expr-predicate cond-clause-expr]
+  (car (tagged-expr-body cond-clause-expr)))
+(define [cond-clause-expr-consequent cond-clause-expr]
+  (cdr (tagged-expr-body cond-clause-expr)))
+(define [input->cond-clause input]
+  [and [list? input] [< 1 (length input)] [not [eq? (car input) 'else]]
+       (make-cond-clause-expr
+         (input->tagged-expr (car input))
+         (make-begin-expr (map input->tagged-expr (cdr input))))])
+
+;Else clause expr
+(define [make-else-clause-expr begin-expr]
+  (cons 'else-clause-expr begin-expr))
+(define [else-clause-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'else-clause-expr])
+(define [else-clause-expr-consequent else-clause-expr]
+  (tagged-expr-body else-clause-expr))
+(define [input->else-clause input]
+  [and [list? input] [< 1 (length input)] [eq? (car input) 'else]
+       (make-else-clause-expr
+         (make-begin-expr (map input->tagged-expr (cdr input))))])
+
+;Cond expr
+(define [make-cond-expr clauses] (cons 'cond-expr clauses))
+(define [cond-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'cond-expr])
+(define [cond-expr-clauses cond-expr] (tagged-expr-body cond-expr))
+(define [input->cond-expr input]
+  [and [list? input] [< 2 (length input)] [eq? (car input) 'cond]
+       (make-cond-expr
+         (map (lambda [x] (ormap (lambda [p] (p x))
+                                 (list input->cond-clause input->else-clause)))
+              (cdr input)))])
+(add-input->tagged-expr-proc input->cond-expr)
 (define [cond->nested-if-exprs cond-expr]
   (define [expand-clauses clauses]
-    (define [expand]
-      (let ([first-clause (car clauses)]
-            [rest-clause (cdr clauses)])
-        (if [and [else-clause? first-clause] [not [null? rest-clause]]]
-          (error "cond else clause followed by clause -- EXPAND-CLAUSES")
-          (make-if-expr (if [else-clause? first-clause]
-                          'true
-                          (clause-predicate first-clause))
-                        (make-begin-expr (clause-consequents first-clause))
-                        (expand-clauses (cdr clauses))))))
-
-    (if [null? clauses] 'false (expand)))
-
-  (expand-clauses (cond-clauses cond-expr)))
+    (cond ([null? clauses] (void))
+          ([and [else-clause-expr? (car clauses)] [not [null? (cdr clauses)]]]
+           (error "cond else clause followed by clause -- EXPAND-CLAUSES"))
+          ([and [else-clause-expr? (car clauses)] [null? (cdr clauses)]]
+           (else-clause-expr-consequent (car clauses)))
+          (else
+           (make-if-expr (cond-clause-expr-predicate (car clauses))
+                         (cond-clause-expr-consequent (car clauses))
+                         (expand-clauses (cdr clauses))))))
+  (expand-clauses (cond-expr-clauses cond-expr)))
 (define [analyze-cond-expr cond-expr]
-  (let* ([nested-if-exprs (cond->nested-if-exprs cond-expr)]
-         [analyzed-nested-if-exprs (analyze nested-if-exprs)])
-    (lambda [env] (analyzed-nested-if-exprs env))))
-(define [eval-cond-expr cond-expr env] ((analyze-cond-expr cond-expr) env))
-(register-tagged-expr-analyze 'cond analyze-cond-expr)
+  (let* ([nested-if-exprs (cond->nested-if-exprs cond-expr)])
+    (analyze nested-if-exprs)))
+(register-tagged-expr-analyze 'cond-expr analyze-cond-expr)
 
-;Lambda tag expr
-;('lambda (<param> ...) <expr> ...)
+;Lambda expr
 (define [make-lambda-expr parameters exprs]
-  (if [null? exprs]
-    (error "lambda body empty -- MAKE-LAMBDA-EXPR")
-    (cons 'lambda (cons parameters exprs))))
-(define [lambda? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'lambda])
-(define [lambda-parameters tagged-expr]
-  (let ([parameters (car (tagged-expr-body tagged-expr))])
-    (if [list? parameters]
-      parameters
-      (error "invalid lambda expression -- LAMBDA-PARAMETERS" parameters))))
-(define [lambda-body tagged-expr]
-  (let ([exprs (cdr (tagged-expr-body tagged-expr))])
-    (if [pair? exprs]
-      exprs
-      (error "invalid lambda expression -- LAMBDA-BODY" exprs))))
+  (cons 'lambda-expr (cons parameters exprs)))
+(define [lambda-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'lambda-expr])
+(define [lambda-expr-parameters tagged-expr] (car (tagged-expr-body tagged-expr)))
+(define [lambda-expr-exprs tagged-expr] (cdr (tagged-expr-body tagged-expr)))
+(define [input->lambda-expr input]
+  [and [list? input] [< 2 (length input)] [eq? (car input) 'lambda]
+       (make-lambda-expr (cadr input) (map input->tagged-expr (cddr input)))])
+(add-input->tagged-expr-proc input->lambda-expr)
 (define [analyze-lambda-expr lambda-expr]
-  (let ([analyzed-exprs (map analyze (lambda-body lambda-expr))]
-        [parameters (lambda-parameters lambda-expr)])
-    (lambda [env]
-      (define [eval-exprs analyzed-exprs extended-env]
-        (define [iter remaining-exprs]
-          (let ([first-expr (car remaining-exprs)]
-                [rest-exprs (cdr remaining-exprs)])
-            (cond ([null? rest-exprs] (first-expr extended-env))
-                  (else (first-expr extended-env)
-                        (iter rest-exprs)))))
-        (iter analyzed-exprs))
+  (let ([analyzed-exprs (map analyze (lambda-expr-exprs lambda-expr))])
+    (make-lambda-expr (lambda-expr-parameters lambda-expr) analyzed-exprs)))
+(register-tagged-expr-analyze 'lambda-expr analyze-lambda-expr)
+(define [eval-lambda-expr analyzed-lambda-expr env]
+  (let ([params (lambda-expr-parameters analyzed-lambda-expr)])
+    (lambda args
+      (cond ([not [list? params]]
+             (eval-sequence
+               (lambda-expr-exprs analyzed-lambda-expr)
+               (extend-environment env (list (make-vv-pair params args)))))
+            ([= (length args) (length params)]
+             (eval-sequence
+               (lambda-expr-exprs analyzed-lambda-expr)
+               (extend-environment env (map make-vv-pair params args))))
+            (else
+              (error "parameters and arguments inconsist -- EVAL-LAMBDA-EXPR"))))))
+(register-tagged-expr-eval 'lambda-expr eval-lambda-expr)
 
-      (lambda args
-        (if [= (length args) (length (lambda-parameters lambda-expr))]
-          (eval-exprs analyzed-exprs
-                      (extend-environment
-                        (map (lambda [var val] (make-vv-pair var val))
-                             parameters args)
-                        env))
-          (error "parameters and arguments inconsist -- EVAL-LAMBDA-EXPR"))))))
-(define [eval-lambda-expr lambda-expr env]
-  ((analyze-lambda-expr lambda-expr) env))
-(register-tagged-expr-analyze 'lambda analyze-lambda-expr)
-
-;Definition tag expr
-;Default ('define <var> <value>)
-;Default ('define <var> ('lambda [<param0> ...] exprs))
-;('define [<var> <param0> ...] exprs)
-;Non default style won't be generate by make expr
+;Definition expr
 (define [make-definition-expr variable value]
-  (if [symbol? variable]
-    (list 'define variable value)
-    (error "invalid variable -- MAKE-DEFINITION-EXPR" variable value)))
-(define [definition? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'define])
-(define [definition-variable definition-expr]
-  (define [proc-default-style first-elt] first-elt)
-  (define [proc-non-default-style first-elt] (car first-elt))
-
-  (let ([first-elt (car (tagged-expr-body definition-expr))])
-    (cond ([symbol? first-elt] (proc-default-style first-elt))
-          ([pair? first-elt] (proc-non-default-style first-elt))
-          (else (error "invalid define expression -- DEFINITION-VARIABLE"
-                       first-elt)))))
-(define [definition-value definition-expr]
-  (define [proc-default-style body] (cadr body))
-  (define [proc-non-default-style body]
-    (make-lambda-expr (cdar body) (cdr body)))
-
-  (let* ([definition-body (tagged-expr-body definition-expr)]
-         [first-elt (car definition-body)])
-    (cond ([symbol? first-elt] (proc-default-style definition-body))
-          ([pair? first-elt] (proc-non-default-style definition-body))
-          (else (error "invalid define expression -- DEFINITION-VALUE")))))
+  (cons 'define-expr (cons variable value)))
+(define [definition-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'define-expr])
+(define [definition-expr-variable definition-expr]
+  (car (tagged-expr-body definition-expr)))
+(define [definition-expr-value definition-expr]
+  (cdr (tagged-expr-body definition-expr)))
+(define [input->definition-expr input]
+  (cond ([and [list? input] [= (length input) 3] [eq? (car input) 'define]
+              [symbol? (cadr input)]]
+         (make-definition-expr (cadr input) (input->tagged-expr (caddr input))))
+        ([and [list? input] [< 2 (length input)] [eq? (car input) 'define]
+              [list? (cadr input)] [symbol? (caadr input)]]
+         (make-definition-expr
+           (caadr input)
+           (make-lambda-expr (cdadr input)
+                             (map input->tagged-expr (cddr input)))))
+        (else false)))
+(add-input->tagged-expr-proc input->definition-expr)
 (define [analyze-definition-expr definition-expr]
-  (let ([variable (definition-variable definition-expr)]
-        [value (analyze (definition-value definition-expr))])
-    (lambda [env]
-      (define-variable! variable (value env) env)
-      'definition-ok)))
-(define [eval-definition-expr definition-expr env]
-  ((analyze-definition-expr definition-expr) env))
-(register-tagged-expr-analyze 'define analyze-definition-expr)
+  (make-definition-expr (definition-expr-variable definition-expr)
+                        (analyze (definition-expr-value definition-expr))))
+(register-tagged-expr-analyze 'define-expr analyze-definition-expr)
+(define [eval-definition-expr analyzed-definition-expr env]
+  (define-variable!
+    env
+    (definition-expr-variable analyzed-definition-expr)
+    (evlt (definition-expr-value analyzed-definition-expr) env))
+  'definition-ok)
+(register-tagged-expr-eval 'define-expr eval-definition-expr)
 
 ;Let tag expr
-;('let (<var value> ...) exprs ...)
-(define [make-let-expr pa-pairs exprs] (cons 'let (cons pa-pairs exprs)))
-(define [let? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'let])
-(define [let-pa-pairs let-expr] (car (tagged-expr-body let-expr)))
-(define [let-body let-expr] (cdr (tagged-expr-body let-expr)))
+(define [make-let-expr pa-pairs exprs] (cons 'let-expr (cons pa-pairs exprs)))
+(define [let-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'let-expr])
+(define [let-expr-pa-pairs let-expr] (car (tagged-expr-body let-expr)))
+(define [let-expr-body let-expr] (cdr (tagged-expr-body let-expr)))
+(define [input->let-expr input]
+  [and [list? input] [< 2 (length input)] [eq? (car input) 'let]
+       [list? (cadr input)]
+       [andmap (lambda [x] [and [list? x] [= (length x) 2] [symbol? (car x)]])
+               (cadr input)]
+       (make-let-expr
+         (map (lambda [x] (make-pa-pair (car x) (input->tagged-expr (cadr x))))
+              (cadr input))
+         (map input->tagged-expr (cddr input)))])
+(add-input->tagged-expr-proc input->let-expr)
 (define [analyze-let-expr let-expr]
-  (define [let->lambda-args-expr]
-    (cons (make-lambda-expr (map pa-pair-parameter (let-pa-pairs let-expr))
-                            (let-body let-expr))
-          (map pa-pair-argument (let-pa-pairs let-expr))))
+  (let ([analyzed-arguments (map (lambda [x] (analyze (pa-pair-argument x)))
+                                 (let-expr-pa-pairs let-expr))]
+        [parameters (map pa-pair-parameter (let-expr-pa-pairs let-expr))]
+        [analyzed-exprs (map analyze (let-expr-body let-expr))])
+    (list (make-lambda-expr parameters analyzed-exprs)
+          analyzed-arguments)))
+(register-tagged-expr-analyze 'let-expr analyze-let-expr)
 
-  (let ([parameters (map pa-pair-parameter (let-pa-pairs let-expr))]
-        [arguments (analyze (map pa-pair-argument (let-pa-pairs let-expr)))]
-        [analyzed-lambda-expr (analyze (let->lambda-args-expr))])
-    (lambda [env] (analyzed-lambda-expr env))))
-(define [eval-let-expr let-expr env] ((analyze-let-expr let-expr) env))
-(register-tagged-expr-analyze 'let analyze-let-expr)
-
-;Named let tag expr
-;('let name (<var value> ...) exprs ...)
-(define [make-named-let-expr self pa-pairs exprs]
-  (cons 'named-let (cons self (cons pa-pairs exprs))))
-(define [named-let? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'named-let])
-(define [named-let-self named-let-expr]
-  (car (tagged-expr-body named-let-expr)))
-(define [named-let-pa-pairs named-let-expr]
-  (cadr (tagged-expr-body named-let-expr)))
-(define [named-let-body named-let-expr]
-  (cddr (tagged-expr-body named-let-expr)))
-(define [analyze-named-let-expr named-let-expr]
-  (define [named-let->definition]
-    (make-definition-expr
-      (named-let-self named-let-expr)
-      (make-lambda-expr
-        (map pa-pair-parameter (named-let-pa-pairs named-let-expr))
-        (named-let-body named-let-expr))))
-
-  (let ([name (named-let-self named-let-expr)]
-        [analyzed-let-expr (analyze
-                             (make-let-expr (named-let-pa-pairs named-let-expr)
-                                            (named-let-body named-let-expr)))])
-    (lambda [env]
-      (analyzed-let-expr 
-        (extend-environment (list (make-vv-pair name analyzed-let-expr)))
-                            env))))
-(define [eval-named-let-expr named-let-expr env]
-  ((analyze-named-let-expr named-let-expr) env))
-(register-tagged-expr-analyze 'named-let analyze-named-let-expr)
-
-;Let* tag expr
-;('let* (<param arg> ...) exprs ...)
-(define [make-let*-expr pa-pairs exprs] (cons 'let* (cons pa-pairs exprs)))
-(define [let*? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'let*])
-(define [let*-expr-pa-pairs let*-expr] (cadr let*-expr))
-(define [let*-expr-body let*-expr] (cddr let*-expr))
-(define [analyze-let*-expr let*-expr]
-  (define [let*->nested-lets]
-    (let ([pa-pairs (let*-expr-pa-pairs let*-expr)]
-          [exprs (let*-expr-body let*-expr)])
-      (if [null? pa-pairs]
-        exprs
-        (make-let-expr (list (car pa-pairs))
-                       (let*->nested-lets
-                         (make-let*-expr (cdr pa-pairs) exprs))))))
-
-  (let ([analyzed-let*-expr (analyze (let*->nested-lets let*-expr))])
-    (lambda [env] (analyzed-let*-expr env))))
-(define [eval-let*-expr let*-expr env] ((analyze-let*-expr let*-expr) env))
-(register-tagged-expr-analyze 'let* analyze-let*-expr)
-
-;letrec tag expr
-;('letrec (<param arg> ...) exprs ...)
-(define [make-letrec-expr pa-pairs exprs] (cons 'letrec (cons pa-pairs exprs)))
-(define [letrec? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'letrec])
-(define [letrec-pa-pairs letrec-expr] (cadr letrec-expr))
-(define [letrec-body letrec-expr] (cddr letrec-expr))
-(define [analyze-letrec-expr letrec-expr]
-  (define [letrec->let]
-    (define declare-variables
-      (map (lambda [var] (cons var '*unassigned*))
-           (map pa-pair-parameter (letrec-pa-pairs letrec-expr))))
-    (define set-variables
-      (map (lambda [var val] (list 'set! var val))
-           (map pa-pair-parameter (letrec-pa-pairs letrec-expr))
-           (map pa-pair-argument (letrec-pa-pairs letrec-expr))))
-  
-    (make-let-expr declare-variables
-                   (append set-variables (letrec-body letrec-expr))))
-
-  (let* ([let-expr (letrec->let letrec-expr)]
-         [analyzed-let-expr (analyze let-expr)])
-    (lambda [env] (analyzed-let-expr env))))
-
-(define [scan-out-defines exprs]
-  (let ([definition-exprs (filter definition? exprs)]
-        [remaining-exprs (filter (lambda [x] [not [definition? x]]) exprs)])
-    (cons
-      (map (lambda [x] (cons x '*unassigned*))
-           (map definition-variable definition-exprs))
-      (append (map (lambda [var val] (list 'set! var val))
-                   (map definition-variable definition-exprs)
-                   (map definition-value definition-exprs))
-              remaining-exprs))))
-(define [extract-defines->let-expr exprs]
-  (let* ([scan-result (scan-out-defines exprs)]
-         [pa-pairs (car scan-result)]
-         [body (cdr scan-result)])
-    (make-let-expr pa-pairs body)))
-
-;Begin tag expr
-;('begin <expr> ...)
-(define [make-begin-expr exprs]
-  (if [null? exprs]
-    (error "get a empty expr input -- MAKE-BEGIN-EXPR")
-    (cons 'begin exprs)))
-(define [begin? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'begin])
-(define [begin-body begin-expr] (tagged-expr-body begin-expr))
+;Begin expr
+(define [make-begin-expr exprs] (cons 'begin-expr exprs))
+(define [begin-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'begin-expr])
+(define [begin-expr-body begin-expr] (tagged-expr-body begin-expr))
+(define [input->begin-expr input]
+  [and [list? input] [< 1 (length input)] [eq? (car input) 'begin]
+       (make-begin-expr (map input->tagged-expr (cdr input)))])
+(add-input->tagged-expr-proc input->begin-expr)
 (define [analyze-begin-expr begin-expr]
-  (let ([analyzed-exprs (map analyze (begin-body begin-expr))])
-    (lambda [env]
-      (define [iter exprs]
-        (let ([first-expr (car exprs)]
-              [rest-exprs (cdr exprs)])
-          (if [null? rest-exprs]
-            (first-expr env)
-            (begin
-              (first-expr env)
-              (iter rest-exprs env)))))
+  (let ([analyzed-exprs (map analyze (begin-expr-body begin-expr))])
+    (if [= (length analyzed-exprs) 1]
+      (car analyzed-exprs)
+      (make-begin-expr analyzed-exprs))))
+(register-tagged-expr-analyze 'begin-expr analyze-begin-expr)
+(define [eval-begin-expr analyzed-begin-expr env]
+  (eval-sequence (begin-expr-body analyzed-begin-expr) env))
+(register-tagged-expr-eval 'begin-expr eval-begin-expr)
 
-      (iter analyzed-exprs))))
-(define [eval-begin-expr begin-expr env] ((analyze-begin-expr begin-expr) env))
-(register-tagged-expr-analyze 'begin analyze-begin-expr)
-
-;Set! tag expr
-;('set! <variable> <value>)
-(define [make-assignment-expr variable value] (list 'set! variable value))
-(define [assignment? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'set!])
-(define [assignment-variable assignment-expr]
+;Set! expr
+(define [make-assignment-expr variable new-value]
+  (cons 'set!-expr (cons variable new-value)))
+(define [assignment-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'set!-expr])
+(define [assignment-expr-variable assignment-expr]
   (car (tagged-expr-body assignment-expr)))
-(define [assignment-value assignment-expr]
-  (cadr (tagged-expr-body assignment-expr)))
+(define [assignment-expr-value assignment-expr]
+  (cdr (tagged-expr-body assignment-expr)))
+(define [input->assignment-expr input]
+  [and [list? input] [= 3 (length input)] [eq? (car input) 'set!]
+       [symbol? (cadr input)]
+       (make-assignment-expr (cadr input) (input->tagged-expr (caddr input)))])
+(add-input->tagged-expr-proc input->assignment-expr)
 (define [analyze-assignment-expr assignment-expr]
-  (let ([variable (assignment-variable assignment-expr)]
-        [analyzed-value (analyze (assignment-value assignment-expr))])
-    (lambda [env]
-      (set-variable-value! variable (analyzed-value env) env)
-      'assignment-ok)))
-(define [eval-assignment-expr assignment-expr env]
-  ((analyze-assignment-expr assignment-expr) env))
-(register-tagged-expr-analyze 'set! analyze-assignment-expr)
+  (let ([variable (assignment-expr-variable assignment-expr)]
+        [analyzed-value (analyze (assignment-expr-value assignment-expr))])
+    (make-assignment-expr variable analyzed-value)))
+(register-tagged-expr-analyze 'set!-expr analyze-assignment-expr)
+(define [eval-assignment-expr analyzed-assignment-expr env]
+  (define-variable! env
+                    (assignment-expr-variable analyzed-assignment-expr)
+                    (evlt (assignment-expr-value analyzed-assignment-expr) env))
+  'assignment-ok)
+(register-tagged-expr-eval 'set!-expr eval-assignment-expr)
 
-;While tag expr
-;racket do-loop never used before, here I implement simpler while loop instead.
-;('while <stop-expr> exprs)
-(define [make-while-expr stop-expr exprs]
-  (cons 'while (cons stop-expr exprs)))
-(define [while? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'while])
-(define [while-stop-expr while-expr] (cadr while-expr))
-(define [while-body while-expr] (cddr while-expr))
-(define [analyze-while-expr while-expr]
-  (define [while->tail-recur-lambda]
-    (make-lambda-expr '()
-                      (make-unless-expr (while-stop-expr while-expr)
-                                        (while-body while-expr))))
+;Unbound expr
+(define [make-unbound-expr symbol] (cons 'unbound!-expr symbol))
+(define [unbound-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'unbound!-expr])
+(define [unbound-expr-symbol unbound-expr] (tagged-expr-body unbound-expr))
+(define [input->unbound-expr input]
+  [and [list? input] [= (length input) 2] [eq? (car input) 'unbound!]
+       [symbol? (cadr input)]
+       (make-unbound-expr (cadr input))])
+(add-input->tagged-expr-proc input->unbound-expr)
+(define [analyze-unbound-expr unbound-expr] unbound-expr)
+(register-tagged-expr-analyze 'unbound!-expr analyze-unbound-expr)
+(define [eval-unbound-expr analyzed-unbound-expr env]
+  (frame-remove! (env-head env) (unbound-expr-symbol analyzed-unbound-expr)))
+(register-tagged-expr-eval 'unbound!-expr eval-unbound-expr)
 
-  (let ([analyzed-lambda (analyze (while->tail-recur-lambda))])
-    (lambda [env] (analyzed-lambda env))))
-(define [eval-while-expr while-expr env] ((analyze-while-expr while-expr) env))
-(register-tagged-expr-analyze 'while analyze-while-expr)
+;Procedure
+(define [make-procedure-expr variable args]
+  (cons 'procedure-expr (cons variable args)))
+(define [procedure-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'procedure-expr])
+(define [procedure-expr-proc proc-expr] (car (tagged-expr-body proc-expr)))
+(define [procedure-expr-args proc-expr] (cdr (tagged-expr-body proc-expr)))
+(define [input->procedure-expr input]
+  [and [list? input] [< 0 (length input)]
+       (make-procedure-expr (input->tagged-expr (car input))
+                            (map input->tagged-expr (cdr input)))])
+(add-input->tagged-expr-proc input->procedure-expr)
+(define [analyze-procedure-expr proc-expr]
+  (let ([analyzed-proc (analyze (procedure-expr-proc proc-expr))]
+        [analyzed-args (map analyze (procedure-expr-args proc-expr))])
+    (make-procedure-expr analyzed-proc analyzed-args)))
+(register-tagged-expr-analyze 'procedure-expr analyze-procedure-expr)
+(define [eval-procedure-expr analyzed-procedure-expr env]
+  (let ([proc (force-it (evlt (procedure-expr-proc analyzed-procedure-expr) env))] [unevaled-args (procedure-expr-args analyzed-procedure-expr)])
+    (if [primitive-procedure? proc]
+      (apply proc (map (lambda [x] (force-it (evlt x env))) unevaled-args))
+      (apply proc (map (lambda [x] (delay-it x env)) unevaled-args)))))
+(register-tagged-expr-eval 'procedure-expr eval-procedure-expr)
 
-;Primitive table for mapping uplayer racket to underlayer racket
+;;Named let tag expr
+;(define [make-named-let-expr self pa-pairs exprs]
+;  (cons 'named-let self pa-pairs exprs))
+;(define [named-let-expr? tagged-expr]
+;  [tagged-expr-tag-eq? tagged-expr 'named-let])
+;(define [named-let-self named-let-expr]
+;  (car (tagged-expr-body named-let-expr)))
+;(define [named-let-pa-pairs named-let-expr]
+;  (cadr (tagged-expr-body named-let-expr)))
+;(define [named-let-body named-let-expr]
+;  (cddr (tagged-expr-body named-let-expr)))
+;(define [analyze-named-let-expr named-let-expr]
+;  (let* ([name (named-let-self named-let-expr)]
+;         [inner-let-expr (make-let-expr (named-let-pa-pairs named-let-expr)
+;                                        (named-let-body named-let-expr))]
+;         [analyzed-let-expr (analyze inner-let-expr)])
+;    (lambda [env]
+;      (define-variable! env name (lambda [] (inner-let-expr env)))
+;      (analyzed-let-expr env))))
+;(define [eval-named-let-expr named-let-expr env]
+;  ((analyze-named-let-expr named-let-expr) env))
+;(register-tagged-expr-analyze 'named-let analyze-named-let-expr)
+;
+;;Let* tag expr
+;(define [make-let*-expr pa-pairs exprs] (cons 'let* (cons pa-pairs exprs)))
+;(define [let*? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'let*])
+;(define [let*-pa-pairs let*-expr] (car (tagged-expr-body let*-expr)))
+;(define [let*-body let*-expr] (cdr (tagged-expr-body let*-expr)))
+;(define [let*->nested-lets let*-expr]
+;  (let ([pa-pairs (let*-pa-pairs let*-expr)]
+;        [exprs (let*-body let*-expr)])
+;    (if [null? pa-pairs]
+;      exprs
+;      (make-let-expr (cons (car pa-pairs) '())
+;                     (let*->nested-lets
+;                       (make-let*-expr (cdr pa-pairs) exprs))))))
+;(define [analyze-let*-expr let*-expr]
+;  (let ([analyzed-let*-expr (analyze (let*->nested-lets let*-expr))])
+;    (lambda [env] (analyzed-let*-expr env))))
+;(define [eval-let*-expr let*-expr env] ((analyze-let*-expr let*-expr) env))
+;(register-tagged-expr-analyze 'let* analyze-let*-expr)
+;
+;;letrec tag expr
+;(define [make-letrec-expr pa-pairs exprs] (cons 'letrec (cons pa-pairs exprs)))
+;(define [letrec-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'letrec])
+;(define [letrec-pa-pairs letrec-expr] (car (tagged-expr-body letrec-expr)))
+;(define [letrec-body letrec-expr] (cdr (tagged-expr-body letrec-expr)))
+;
+;(define [letrec->let letrec-expr]
+;  (define declare-variables
+;    (map (lambda [var] (make-vv-pair var '*unassigned*))
+;         (map pa-pair-parameter (letrec-pa-pairs letrec-expr))))
+;  (define set-variables
+;    (map (lambda [var val] (list 'set!-expr var val))
+;         (map pa-pair-parameter (letrec-pa-pairs letrec-expr))
+;         (map pa-pair-argument (letrec-pa-pairs letrec-expr))))
+;
+;  (make-let-expr declare-variables
+;                 (append set-variables (letrec-body letrec-expr))))
+;(define [analyze-letrec-expr letrec-expr]
+;  (let ([analyzed-let-expr (analyze (letrec->let letrec-expr))])
+;    (lambda [env] (analyzed-let-expr env))))
+;(define [eval-letrec-expr letrec-expr env]
+;  ((analyze-letrec-expr letrec-expr) env))
+;(register-tagged-expr-analyze 'letrec analyze-letrec-expr)
+
+;(define [scan-out-defines exprs]
+;  (let ([definition-exprs (filter definition? exprs)]
+;        [remaining-exprs (filter (lambda [x] [not [definition? x]]) exprs)])
+;    (cons
+;      (map (lambda [x] (cons x '*unassigned*))
+;           (map definition-expr-variable definition-exprs))
+;      (append (map (lambda [var val] (list 'set!-expr var val))
+;                   (map definition-expr-variable definition-exprs)
+;                   (map definition-expr-value definition-exprs))
+;              remaining-exprs))))
+;(define [extract-defines->let-expr exprs]
+;  (let* ([scan-result (scan-out-defines exprs)]
+;         [pa-pairs (car scan-result)]
+;         [body (cdr scan-result)])
+;    (make-let-expr pa-pairs body)))
+
+;;While tag expr
+;(define [make-while-expr stop-expr exprs] (cons 'while (cons stop-expr exprs)))
+;(define [while? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'while])
+;(define [while-stop-expr while-expr] (car (tagged-expr-body while-expr)))
+;(define [while-body while-expr] (cdr (tagged-expr-body while-expr)))
+;(define [while->tail-recur-lambda while-expr]
+;  (make-lambda-expr '()
+;                    (make-unless-expr (while-stop-expr while-expr)
+;                                      (while-body while-expr))))
+;(define [analyze-while-expr while-expr]
+;  (let ([analyzed-lambda (analyze (while->tail-recur-lambda while-expr))])
+;    (lambda [env] (analyzed-lambda env))))
+;(define [eval-while-expr while-expr env] ((analyze-while-expr while-expr) env))
+;(register-tagged-expr-analyze 'while analyze-while-expr)
+
+;Input process
+(define [inputs->tagged-exprs inputs]
+  (let ([structed-exprs (map input->tagged-expr inputs)])
+    (if [andmap tagged-expr? structed-exprs]
+      structed-exprs
+      (error "Unknown input -- INPUT->TAGGED-EXPR"))))
+
+;Analyze process
+(define [analyze tagged-expr]
+  (let ([analyze-proc (get-tagged-expr-analyze (tagged-expr-tag tagged-expr))])
+    (analyze-proc tagged-expr)))
+(define [analyze-sequence exprs] (map analyze exprs))
+
+;Eval process
+(define [evlt analyzed-tagged-expr env]
+  (let ([evlt-proc (get-tagged-expr-eval (tagged-expr-tag analyzed-tagged-expr))])
+    (evlt-proc analyzed-tagged-expr env)))
+(define [eval-sequence exprs env]
+  (define [iter remaining]
+    (let* ([first-expr (car remaining)]
+           [rest-exprs (cdr remaining)]
+           [first-result (evlt first-expr env)])
+      (if [null? rest-exprs] first-result (iter rest-exprs))))
+  (iter exprs))
+
+;REPL, Interactive evaluator
+;Primitive table bindings
 (define primitive-table
   (list (make-vv-pair 'car car)
         (make-vv-pair 'cdr cdr)
-        ;(make-vv-pair 'cons cons)
+        (make-vv-pair 'cons cons)
         (make-vv-pair 'null? null?)
+        (make-vv-pair 'eq? eq?)
+        (make-vv-pair 'equal? equal?)
         (make-vv-pair '+ +)
         (make-vv-pair '- -)
         (make-vv-pair '* *)
         (make-vv-pair '/ /)
         (make-vv-pair '= =)
-        (make-vv-pair 'append append)
         (make-vv-pair 'display display)
-        ;More here
-        ))
+        (make-vv-pair 'newline newline)))
 (define primitive-names (map vv-pair-variable primitive-table))
-(define primitive-objects (map vv-pair-value primitive-table))
+(define primitive-procs (map vv-pair-value primitive-table))
+(define [primitive-procedure? proc] [memq proc primitive-procs])
 
-;Procedure
-;(proc-name arg ...)
-;(<proc-expr> arg ...)
-;(define [make-procedure parameters body env]
-;  (cons 'procedure (cons parameters (cons body env))))
-;(define [procedure-parameters procedure-expr] (cadr procedure-expr))
-;(define [procedure-body procedure-expr] (caddr procedure-expr))
-;(define [procedure-environment procedure-expr] (cdddr procedure-expr))
-(define [make-procedure variable args] (cons variable args))
-(define [generic-procedure? expr]
-  (and [pair? expr] [not [tagged-expr? expr]]))
-(define [primitive-procedure? expr]
-  (and [generic-procedure? expr] [memq (car expr) primitive-names]))
-(define [compound-procedure? expr]
-  [and [generic-procedure? expr] [not [primitive-procedure? expr]]])
-(define [user-procedure? expr]
-  [and [generic-procedure? expr]
-       [not [primitive-procedure? expr]]
-       [not [compound-procedure? expr]]])
-
-(define [proc-name proc] (car proc))
-(define [proc-arguments proc] (cdr proc))
-(define [arguments->values arguments env]
-  (let ([analyzed-args (map analyze arguments)])
-    (lambda [env]
-      (define [iter remaining-arguments]
-        (let ([first-arg (car remaining-arguments)]
-              [rest-args (cdr remaining-arguments)])
-          (if [null? rest-args]
-            (first-arg env)
-            (cons (first-arg env) (iter rest-args)))))
-
-      (iter analyzed-args))))
-
-(define [analyze-primitive-procedure proc-expr]
-  (let ([proc-name (analyze (proc-name proc-expr))]
-        [proc-arguments (map analyze (proc-arguments proc-expr))])
-    (lambda [env]
-      (apply (proc-name env)
-             (map (lambda [arg] (if [thunk? arg] (force-it arg) (arg env)))
-                  proc-arguments)))))
-(define [analyze-compound-procedure proc-expr]
-  (let ([proc-name (analyze (proc-name proc-expr))]
-        [proc-arguments (map analyze (proc-arguments proc-expr))])
-    (lambda [env]
-      (apply (proc-name env)
-             (map (lambda [arg] (delay-it arg env)) proc-arguments)))))
-(define [eval-exprs exprs env]
-  (let ([analyzed-exprs (map analyze exprs)])
-    (lambda [env] (map (lambda [expr] (expr env)) analyzed-exprs))))
-
-;Generic evaluation 
-(define [analyze expr]
-  (cond ([self-evaluating? expr] (analyze-self-evaluating expr))
-        ([variable? expr] (analyze-variable expr))
-        ([tagged-expr? expr]
-         ((search-tag-expr-analyze (tagged-expr-tag expr)) expr))
-        ([primitive-procedure? expr] (analyze-primitive-procedure expr))
-        ([compound-procedure? expr] (analyze-compound-procedure expr))
-        (else (error "unknown expression type -- EVLT" expr))))
-(define [evlt expr env] ((analyze expr) env))
-
-(define [apply-primitive-procedure primitive args] (apply primitive args))
-(define [apply-compound-procedure procedure args] (apply procedure args))
-
-;Generic apply
-(define [aply procedure arguments]
-  (cond ([memq procedure primitive-names]
-         (apply-primitive-procedure procedure arguments))
-        (else
-         (apply-compound-procedure procedure arguments))))
-        ;(else
-        ;  (error "unknown procedure type -- APLY" procedure))))
-
-;Interactive evaluator
+(define [setup-environment]
+  (let ([init-env (extend-environment the-empty-environment primitive-table)])
+    (define-variable! init-env 'true true)
+    (define-variable! init-env 'false false)
+    (define-variable! init-env 'void void)
+    init-env))
 (define the-global-environment (setup-environment))
-(define [prompt-for-input string]
-  (newline) (newline) (display string) (newline))
-(define [announce-output string]
-  (newline) (display string) (newline))
 
+(define input-prompt ";;; L-Eval input:")
+(define output-prompt ";;; L-Eval value:")
+(define [prompt-for-input str] (newline) (newline) (display str) (newline))
+(define [announce-output str] (newline) (display str) (newline))
 (define [user-print object] (display object))
-
 (define [driver-loop]
-  (define input-prompt ";;; L-Eval input:")
-  (define output-prompt ";;; L-Eval value:")
-
   (prompt-for-input input-prompt)
   (let ([input (read)])
-    (let ([output (force-it (evlt input the-global-environment))])
+    (let ([output (force-it (evlt (analyze (input->tagged-expr input))
+                                  the-global-environment))])
       (announce-output output-prompt)
       (user-print output)))
   (driver-loop))
