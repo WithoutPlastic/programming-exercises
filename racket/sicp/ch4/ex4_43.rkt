@@ -35,7 +35,7 @@
          [not [eq? hall-daughter hall-shipname]]
          [not [eq? barnacle-daughter barnacle-shipname]]
          [not [eq? parker-daughter parker-shipname]]
-         [eq? moore-daughter 'Maryann]
+         ;[eq? moore-daughter 'Maryann]
          [eq? barnacle-daughter 'Melissa]
          [eq? barnacle-shipname 'Gabrielle]
          [eq? moore-shipname 'Lorna]
