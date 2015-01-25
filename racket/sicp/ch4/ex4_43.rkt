@@ -23,6 +23,13 @@
 
 (get-father-daughter-shipname-pairs)
 
+;Answer: About non-determinal solution, most of work is solved by preselect
+;non-determinal combination. As we can see, only three amb expression used
+;according to given requirement. And then apply one distinct require and another
+;require will generate result. Since hall shipnam eis Rosalind, just a few
+;combination is available under three amb expression. So preselect suitable amb
+;combination is very important.
+
 ;(define [flatmap proc items] (foldr append null (map proc items)))
 ;
 ;(define fathers '(Mr.Moore ColonelDowning Mr.Hall Sir.BarnacleHood Dr.Parker))
@@ -72,3 +79,7 @@
 ;  (map format-solution
 ;       (filter valid-solution? (generate-permutation-matrix))))
 ;(generate-solutions)
+
+;Answer: determinal solution have no difference with previous exercise. We need
+;to generate a typed matrix and do validation. Some matric path need pay
+;attention.
