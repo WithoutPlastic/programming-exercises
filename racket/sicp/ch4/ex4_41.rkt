@@ -1,43 +1,29 @@
 #lang racket
 
-(define [distinct? items]
-  (cond ([null? items] true)
-        ([null? (cdr items)] true)
-        ([member (car items) (cdr items)] false)
-        (else (distinct? (cdr items)))))
+(define [flatmap proc items] (foldr append null (map proc items)))
 
-(define [flatmap proc items]
-  (if [null? items]
-    '()
-    (let ([mapped (proc (car items))]
-          [remaining (flatmap proc (cdr items))])
-      (if [pair? mapped]
-        (append mapped remaining)
-        (cons mapped remaining)))))
+(define [permutations available-set]
+  (if [null? available-set]
+    (list null)
+    (flatmap (lambda [x] (map (lambda [y] (cons x y))
+                              (permutations (remove x available-set))))
+             available-set)))
 
-(define [permutations lists]
-  (if [null? lists]
-    (list '())
-    (flatmap (lambda [x] (map (lambda [y] (cons x y)) (permutations (cdr lists))))
-             (car lists))))
+(define [format-solution solution-list]
+  (map list '(baker cooper fletcher miller smith) solution-list))
 
-(define [met-requirements? items]
-  (let ([b (first items)]
-        [c (second items)]
-        [f (third items)]
-        [m (fourth items)]
-        [s (fifth items)])
+(define [valid-solution? permutation]
+  (let ([b (first permutation)]
+        [c (second permutation)]
+        [f (third permutation)]
+        [m (fourth permutation)]
+        [s (fifth permutation)])
     [and [not [= b 5]] [not [= c 1]] [not [= f 1]] [not [= f 5]] [< c m]
          [not [= (abs (- s f)) 1]]
-         [not [= (abs (- f c)) 1]]
-         [distinct? items]]))
+         [not [= (abs (- f c)) 1]]]))
 
 (define [multi-dwelling]
-  (let* ([baker '(1 2 3 4 5)]
-         [cooper '(1 2 3 4 5)]
-         [fletcher '(1 2 3 4 5)]
-         [miller '(1 2 3 4 5)]
-         [smith '(1 2 3 4 5)])
-    (filter met-requirements?
-            (permutations (list baker cooper fletcher miller smith)))))
+  (map format-solution
+       (filter valid-solution? (permutations (list 1 2 3 4 5)))))
+  
 (multi-dwelling)
