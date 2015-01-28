@@ -719,6 +719,34 @@
     (iter analyzed-exprs goback)))
 (register-tagged-expr-eval 'ramb-expr eval-ramb-expr)
 
+;If-fail expr
+(define [make-if-fail-expr predicate alternative]
+  (cons 'if-fail-expr (cons predicate alternative)))
+(define [if-fail-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'if-fail-expr])
+(define [if-fail-expr-predicate if-fail-expr]
+  (car (tagged-expr-body if-fail-expr)))
+(define [if-fail-expr-alternative if-fail-expr]
+  (cdr (tagged-expr-body if-fail-expr)))
+(define [input->if-fail-expr input]
+  [and [list? input] [= 3 (length input)] [eq? (car input) 'if-fail]
+       (make-if-fail-expr (input->tagged-expr (cadr input))
+                          (input->tagged-expr (caddr input)))])
+(add-input->tagged-expr-proc input->if-fail-expr)
+(define [analyze-if-fail-expr if-fail-expr]
+  (let ([analyzed-predicate (analyze (if-fail-expr-predicate if-fail-expr))]
+        [analyzed-alternative (analyze (if-fail-expr-alternative if-fail-expr))])
+    (make-if-fail-expr analyzed-predicate analyzed-alternative)))
+(register-tagged-expr-analyze 'if-fail-expr analyze-if-fail-expr)
+(define [eval-if-fail-expr analyzed-if-fail-expr]
+  (let ([predicate (if-fail-expr-predicate analyzed-if-fail-expr)]
+        [alternative (if-fail-expr-alternative analyzed-if-fail-expr)])
+    (evlt predicate
+          env
+          goahead
+          (lambda [] (eval alternative env goahead goback)))))
+(register-tagged-expr-eval 'if-fail-expr eval-if-fail-expr)
+
 ;;Named let tag expr
 ;(define [make-named-let-expr self pa-pairs exprs]
 ;  (cons 'named-let self pa-pairs exprs))
