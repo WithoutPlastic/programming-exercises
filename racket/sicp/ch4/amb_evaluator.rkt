@@ -129,32 +129,6 @@
       ;(error "duplicated variable definition -- DEFINE-VARIABLE!" variable))
     (lambda [frame env] (add-binding-to-frame! frame variable init-value))))
 
-;Thunk object manipulation
-(define [make-thunk expr env]
-  (if [environment? env]
-    (mcons 'thunk (mcons expr env))
-    (error "given a non environment -- MAKE-THUNK")))
-(define [thunk? object] [and [mpair? object] [eq? (mcar object) 'thunk]])
-(define [thunk-expr thunk] (mcar (mcdr thunk)))
-(define [thunk-env thunk] (mcdr (mcdr thunk)))
-(define [thunk->evaluated! tk]
-  (let ([value (force-it (evlt (thunk-expr tk) (thunk-env tk)))])
-    (set-mcar! tk 'evaluated-thunk)
-    (set-mcar! (mcdr tk) value)
-    (set-mcdr! (mcdr tk) '())
-    value))
-(define [evaluated-thunk? object]
-  [and [mpair? object] [eq? (mcar object) 'evaluated-thunk]])
-(define [evaluated-thunk-value evaluted-thunk] (mcar (mcdr evaluted-thunk)))
-(define [delay-it object env]
-  (cond ([not [environment? env]] (error "given a non environment -- DELAY-IT"))
-        ([thunk? object] object)
-        (else (make-thunk object env))))
-(define [force-it object]
-  (cond ([thunk? object] (thunk->evaluated! object))
-        ([evaluated-thunk? object] (evaluated-thunk-value object))
-        (else object)))
-
 ;Define input->tagged-expr proc table
 (define input->tagged-expr-list '())
 (define [add-input->tagged-expr-proc proc]
@@ -199,8 +173,8 @@
 (add-input->tagged-expr-proc input->number-expr)
 (define [analyze-number-expr number-expr] number-expr)
 (register-tagged-expr-analyze 'number-expr analyze-number-expr)
-(define [eval-number-expr analyzed-number-expr env]
-  (number-expr-value analyzed-number-expr))
+(define [eval-number-expr analyzed-number-expr env goahead goback]
+  (goahead (number-expr-value analyzed-number-expr) goback))
 (register-tagged-expr-eval 'number-expr eval-number-expr)
 
 ;String expr
@@ -212,8 +186,8 @@
 (add-input->tagged-expr-proc input->string-expr)
 (define [analyze-string-expr string-expr] string-expr)
 (register-tagged-expr-analyze 'string-expr analyze-string-expr)
-(define [eval-string-expr analyzed-string-expr env]
-  (string-expr-value analyzed-string-expr))
+(define [eval-string-expr analyzed-string-expr env goahead goback]
+  (goahead (string-expr-value analyzed-string-expr) goback))
 (register-tagged-expr-eval 'string-expr eval-string-expr)
 
 ;Quote expr
@@ -226,8 +200,8 @@
 (add-input->tagged-expr-proc input->quote-expr)
 (define [analyze-quote-expr quote-expr] quote-expr)
 (register-tagged-expr-analyze 'quote-expr analyze-quote-expr)
-(define [eval-quote-expr analyzed-quote-expr env]
-  (quote-expr-text analyzed-quote-expr))
+(define [eval-quote-expr analyzed-quote-expr env goahead goback]
+  (goahead (quote-expr-text analyzed-quote-expr) goback))
 (register-tagged-expr-eval 'quote-expr eval-quote-expr)
 
 ;Variable expr
@@ -239,8 +213,9 @@
 (add-input->tagged-expr-proc input->variable-expr)
 (define [analyze-variable-expr variable-expr] variable-expr)
 (register-tagged-expr-analyze 'variable-expr analyze-variable-expr)
-(define [eval-variable-expr analyzed-variable-expr env]
-  (lookup-variable-value env (variable-expr-symbol analyzed-variable-expr)))
+(define [eval-variable-expr analyzed-variable-expr env goahead goback]
+  (goahead (lookup-variable-value env (variable-expr-symbol analyzed-variable-expr))
+           goback))
 (register-tagged-expr-eval 'variable-expr eval-variable-expr)
 
 ;And expr
@@ -255,9 +230,18 @@
   (let ([analyzed-conds (map analyze (and-expr-cond-exprs and-expr))])
     (make-and-expr analyzed-conds)))
 (register-tagged-expr-analyze 'and-expr analyze-and-expr)
-(define [eval-and-expr analyzed-and-expr env]
-  [andmap (lambda [cdt] [is-true? (force-it (evlt cdt env))])
-          (and-expr-cond-exprs analyzed-and-expr)])
+(define [eval-and-expr analyzed-and-expr env goahead goback]
+  (define [iter remaining back]
+    (if [null? remaining]
+      (goahead true back)
+      (evlt (first remaining)
+            env
+            (lambda [v b]
+              (if [is-true? v]
+                (iter (rest remaining) b)
+                (goahead false b)))
+            back)))
+  (iter (and-expr-cond-exprs analyzed-and-expr) goback))
 (register-tagged-expr-eval 'and-expr eval-and-expr)
 
 ;Or expr
@@ -272,9 +256,18 @@
   (let ([analyzed-conds (map analyze (or-expr-cond-exprs or-expr))])
     (make-or-expr analyzed-conds)))
 (register-tagged-expr-analyze 'or-expr analyze-or-expr)
-(define [eval-or-expr analyzed-or-expr env]
-  [ormap (lambda [cdt] [is-true? (force-it (evlt cdt env))])
-         (or-expr-cond-exprs analyzed-or-expr)])
+(define [eval-or-expr analyzed-or-expr env goahead goback]
+  (define [iter remaining back]
+    (if [null? remaining]
+      (goahead false back)
+      (evlt (first remaining)
+            env
+            (lambda [v b]
+              (if [is-true? v]
+                (iter (rest remaining) b)
+                (goahead false b)))
+            back)))
+  (iter (or-expr-cond-exprs analyzed-or-expr) goback))
 (register-tagged-expr-eval 'or-expr eval-or-expr)
 
 ;If expr
@@ -296,10 +289,17 @@
         [alternative (analyze (if-expr-alternative if-expr))])
     (make-if-expr predicate consequent alternative)))
 (register-tagged-expr-analyze 'if-expr analyze-if-expr)
-(define [eval-if-expr analyzed-if-expr env]
-  (if [is-true? (force-it (evlt (if-expr-predicate analyzed-if-expr) env))]
-    (evlt (if-expr-consequent analyzed-if-expr) env)
-    (evlt (if-expr-alternative analyzed-if-expr) env)))
+(define [eval-if-expr analyzed-if-expr env goahead goback]
+  (let ([predicate-expr (if-expr-predicate analyzed-if-expr)]
+        [consequent-expr (if-expr-consequent analyzed-if-expr)]
+        [alternative-expr (if-expr-alternative analyzed-if-expr)])
+    (evlt predicate-expr
+          env
+          (lambda [v b]
+            (if [is-true? v]
+              (evlt consequent-expr env goahead b)
+              (evlt alternative-expr env goahead b)))
+          goback)))
 (register-tagged-expr-eval 'if-expr eval-if-expr)
 
 ;When expr
@@ -318,9 +318,13 @@
         [consequent (analyze (when-expr-consequent when-expr))])
     (make-when-expr predicate consequent)))
 (register-tagged-expr-analyze 'when-expr analyze-when-expr)
-(define [eval-when-expr analyzed-when-expr env]
-  (when [is-true? (force-it (evlt (when-expr-predicate analyzed-when-expr) env))]
-    (evlt (when-expr-consequent analyzed-when-expr) env)))
+(define [eval-when-expr analyzed-when-expr env goahead goback]
+  (let ([predicate-expr (when-expr-predicate analyzed-when-expr)]
+        [consequent-expr (when-expr-consequent analyzed-when-expr)])
+    (evlt predicate-expr
+          env
+          (lambda [v b] (when [is-true? v] (evlt consequent-expr env goahead b)))
+          goback)))
 (register-tagged-expr-eval 'when-expr eval-when-expr)
 
 ;Unless expr
@@ -339,9 +343,13 @@
         [alternative (analyze (unless-expr-alternative unless-expr))])
     (make-unless-expr predicate alternative)))
 (register-tagged-expr-analyze 'unless analyze-unless-expr)
-(define [eval-unless-expr analyzed-unless-expr env]
-  (unless [is-true? (force-it (evlt (unless-expr-predicte analyzed-unless-expr) env))]
-    (evlt (unless-expr-alternative analyzed-unless-expr) env)))
+(define [eval-unless-expr analyzed-unless-expr env goahead goback]
+  (let ([predicate-expr (unless-expr-predicte analyzed-unless-expr)]
+        [alternative-expr (unless-expr-alternative analyzed-unless-expr)])
+    (evlt predicate-expr
+          env
+          (lambda [v b] (unless [is-true? v] (evlt alternative-expr env goahead b)))
+          goback)))
 (register-tagged-expr-eval 'unless eval-unless-expr)
 
 ;Cond clause expr
@@ -415,19 +423,25 @@
   (let ([analyzed-exprs (map analyze (lambda-expr-exprs lambda-expr))])
     (make-lambda-expr (lambda-expr-parameters lambda-expr) analyzed-exprs)))
 (register-tagged-expr-analyze 'lambda-expr analyze-lambda-expr)
-(define [eval-lambda-expr analyzed-lambda-expr env]
+(define [eval-lambda-expr analyzed-lambda-expr env goahead goback]
   (let ([params (lambda-expr-parameters analyzed-lambda-expr)])
-    (lambda args
-      (cond ([not [list? params]]
-             (eval-sequence
-               (lambda-expr-exprs analyzed-lambda-expr)
-               (extend-environment env (list (make-vv-pair params args)))))
-            ([= (length args) (length params)]
-             (eval-sequence
-               (lambda-expr-exprs analyzed-lambda-expr)
-               (extend-environment env (map make-vv-pair params args))))
-            (else
-              (error "parameters and arguments inconsist -- EVAL-LAMBDA-EXPR"))))))
+    (goahead
+      (lambda [args ahead back]
+        (cond ([not [list? params]]
+               (eval-sequence
+                 (lambda-expr-exprs analyzed-lambda-expr)
+                 (extend-environment env (list (make-vv-pair params args)))
+                 ahead
+                 back))
+              ([= (length args) (length params)]
+               (eval-sequence
+                 (lambda-expr-exprs analyzed-lambda-expr)
+                 (extend-environment env (map make-vv-pair params args))
+                 ahead
+                 back))
+              (else
+                (error "parameters and arguments inconsist -- EVAL-LAMBDA-EXPR"))))
+      goback)))
 (register-tagged-expr-eval 'lambda-expr eval-lambda-expr)
 
 ;Definition expr
@@ -455,12 +469,19 @@
   (make-definition-expr (definition-expr-variable definition-expr)
                         (analyze (definition-expr-expr definition-expr))))
 (register-tagged-expr-analyze 'define-expr analyze-definition-expr)
-(define [eval-definition-expr analyzed-definition-expr env]
-  (define-variable!
-    env
-    (definition-expr-variable analyzed-definition-expr)
-    (evlt (definition-expr-expr analyzed-definition-expr) env))
-  'definition-ok)
+(define [eval-definition-expr analyzed-definition-expr env goahead goback]
+  (let ([def-variable (definition-expr-variable analyzed-definition-expr)]
+        [def-expr (definition-expr-expr analyzed-definition-expr)])
+    (evlt def-expr
+          env
+          (lambda [v b]
+            (define-variable! env def-variable v)
+            (goahead
+              'definition-ok
+              (lambda []
+                (frame-remove! (env-head env) def-variable)
+                (b))))
+          goback)))
 (register-tagged-expr-eval 'define-expr eval-definition-expr)
 
 ;Let tag expr
@@ -501,8 +522,8 @@
       (car analyzed-exprs)
       (make-begin-expr analyzed-exprs))))
 (register-tagged-expr-analyze 'begin-expr analyze-begin-expr)
-(define [eval-begin-expr analyzed-begin-expr env]
-  (eval-sequence (begin-expr-body analyzed-begin-expr) env))
+(define [eval-begin-expr analyzed-begin-expr env goahead goback]
+  (eval-sequence (begin-expr-body analyzed-begin-expr) env goahead goback))
 (register-tagged-expr-eval 'begin-expr eval-begin-expr)
 
 ;Set! expr
@@ -523,11 +544,20 @@
         [analyzed-value (analyze (assignment-expr-expr assignment-expr))])
     (make-assignment-expr variable analyzed-value)))
 (register-tagged-expr-analyze 'set!-expr analyze-assignment-expr)
-(define [eval-assignment-expr analyzed-assignment-expr env]
-  (define-variable! env
-                    (assignment-expr-variable analyzed-assignment-expr)
-                    (evlt (assignment-expr-expr analyzed-assignment-expr) env))
-  'assignment-ok)
+(define [eval-assignment-expr analyzed-assignment-expr env goahead goback]
+  (let ([assign-variable (assignment-expr-variable analyzed-assignment-expr)]
+        [assign-value-expr (assignment-expr-expr analyzed-assignment-expr)])
+    (evlt assign-value-expr
+          env
+          (lambda [v b]
+            (let ([previous-value (lookup-variable-value env assign-variable)])
+              (set-variable-value! env assign-variable v)
+              (goahead
+                'assignment-ok
+                (lambda []
+                  (set-variable-value! env assign-variable previous-value)
+                  (b)))))
+          goback)))
 (register-tagged-expr-eval 'set!-expr eval-assignment-expr)
 
 ;Unbound expr
@@ -541,8 +571,15 @@
 (add-input->tagged-expr-proc input->unbound-expr)
 (define [analyze-unbound-expr unbound-expr] unbound-expr)
 (register-tagged-expr-analyze 'unbound!-expr analyze-unbound-expr)
-(define [eval-unbound-expr analyzed-unbound-expr env]
-  (frame-remove! (env-head env) (unbound-expr-symbol analyzed-unbound-expr)))
+(define [eval-unbound-expr analyzed-unbound-expr env goahead goback]
+  (let* ([ub-variable (unbound-expr-symbol analyzed-unbound-expr)]
+         [previous-value (lookup-variable-value env ub-variable)])
+    (frame-remove! (env-head env) ub-variable)
+    (goahead
+      'unbound-ok
+      (lambda []
+        (add-binding-to-frame! (env-head env) ub-variable previous-value)
+        (goback)))))
 (register-tagged-expr-eval 'unbound!-expr eval-unbound-expr)
 
 ;Procedure expr
@@ -562,12 +599,62 @@
         [analyzed-args (map analyze (procedure-expr-args proc-expr))])
     (make-procedure-expr analyzed-proc analyzed-args)))
 (register-tagged-expr-analyze 'procedure-expr analyze-procedure-expr)
-(define [eval-procedure-expr analyzed-procedure-expr env]
-  (let ([proc (force-it (evlt (procedure-expr-proc analyzed-procedure-expr) env))] [unevaled-args (procedure-expr-args analyzed-procedure-expr)])
-    (if [primitive-procedure? proc]
-      (apply proc (map (lambda [x] (force-it (evlt x env))) unevaled-args))
-      (apply proc (map (lambda [x] (delay-it x env)) unevaled-args)))))
+(define [eval-procedure-expr analyzed-procedure-expr env goahead goback]
+  (let ([proc-expr (procedure-expr-proc analyzed-procedure-expr)]
+        [arg-exprs (procedure-expr-args analyzed-procedure-expr)])
+    (evlt proc-expr
+          env
+          (lambda [proc outter-b]
+            (define [iter remaining accum b]
+              (if [null? remaining]
+                (proc (reverse accum) goahead b)
+                (evlt (first remaining)
+                      env
+                      (lambda [v inner-b]
+                        (iter (rest remaining) (cons v accum) inner-b))
+                      b)))
+            (iter arg-exprs empty outter-b))
+          goback)))
 (register-tagged-expr-eval 'procedure-expr eval-procedure-expr)
+
+;Try-again
+(define [make-try-again-expr] (cons 'try-again-expr empty))
+(define [try-again-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'try-again-expr])
+(define [input->try-again-expr input]
+  [and [list? input] [= (length input) 1] [eq? input 'try-again]
+       (make-try-again-expr)])
+(add-input->tagged-expr-proc input->try-again-expr)
+(define [analyze-try-again-expr try-again-expr] try-again-expr)
+(register-tagged-expr-analyze 'try-again-expr analyze-try-again-expr)
+(define [eval-try-again-expr analyzed-try-again-expr env goahead goback]
+  (displayln "met try again, go back now...")
+  (goback))
+(register-tagged-expr-eval 'try-again-expr eval-try-again-expr)
+
+;Amb expr
+(define [make-amb-expr exprs] (cons 'amb-expr exprs))
+(define [amb-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'amb-expr])
+(define [amb-expr-exprs amb-expr] (tagged-expr-body amb-expr))
+(define [input->amb-expr input]
+  [and [list input] [< 1 (length input)] [eq? (car input) 'amb]
+       (make-amb-expr (map input->tagged-expr (cdr input)))])
+(add-input->tagged-expr-proc input->amb-expr)
+(define [analyze-amb-expr amb-expr]
+  (let ([analyzed-exprs (map analyze (amb-expr-exprs amb-expr))])
+    (make-amb-expr analyzed-exprs)))
+(register-tagged-expr-analyze 'amb-expr analyze-amb-expr)
+(define [eval-amb-expr analyzed-amb-expr env goahead goback]
+  (let ([analyzed-exprs (amb-expr-exprs analyzed-amb-expr)])
+    (define [iter remaining back]
+      (if [null? remaining]
+        (back)
+        (evlt (first remaining)
+              env
+              goahead
+              (lambda [] (iter (rest remaining) back)))))
+    (iter analyzed-exprs goback)))
+(register-tagged-expr-eval 'amb-expr eval-amb-expr)
 
 ;;Named let tag expr
 ;(define [make-named-let-expr self pa-pairs exprs]
@@ -680,31 +767,56 @@
 (define [analyze-sequence exprs] (map analyze exprs))
 
 ;Eval process
-(define [evlt analyzed-tagged-expr env]
+(define [evlt analyzed-tagged-expr env goahead goback]
   (let ([evlt-proc (get-tagged-expr-eval (tagged-expr-tag analyzed-tagged-expr))])
-    (evlt-proc analyzed-tagged-expr env)))
-(define [eval-sequence exprs env]
-  (define [iter remaining]
-    (let* ([first-expr (car remaining)]
-           [rest-exprs (cdr remaining)]
-           [first-result (evlt first-expr env)])
-      (if [null? rest-exprs] first-result (iter rest-exprs))))
-  (iter exprs))
+    (evlt-proc analyzed-tagged-expr env goahead goback)))
+(define [eval-sequence exprs env goahead goback]
+  (define [iter remaining last-v back]
+    (if [null? remaining]
+      (goahead last-v back)
+      (evlt (first remaining)
+            env
+            (lambda [v b] (iter (rest remaining) v b))
+            back)))
+  (iter exprs (void) goback))
+
+(define [distinct? items]
+  (define [iter remaining accum]
+    (cond ([null? remaining] true)
+          ([member (first remaining) accum] false)
+          (else (iter (rest remaining) (cons (first remaining) accum)))))
+  (iter items empty))
 
 ;REPL, Interactive evaluator
 ;Primitive table bindings
 (define primitive-table
   (list (make-vv-pair 'car car)
         (make-vv-pair 'cdr cdr)
+        (make-vv-pair 'cadr cadr)
+        (make-vv-pair 'cddr cddr)
+        (make-vv-pair 'cdar cdar)
+        (make-vv-pair 'caar caar)
         (make-vv-pair 'cons cons)
         (make-vv-pair 'null? null?)
         (make-vv-pair 'eq? eq?)
         (make-vv-pair 'equal? equal?)
+        (make-vv-pair 'memq memq)
+        (make-vv-pair 'member member)
+        (make-vv-pair 'not not)
+        (make-vv-pair 'distinct? distinct?)
         (make-vv-pair '+ +)
         (make-vv-pair '- -)
         (make-vv-pair '* *)
         (make-vv-pair '/ /)
         (make-vv-pair '= =)
+        (make-vv-pair '< <)
+        (make-vv-pair '> >)
+        (make-vv-pair '<= <=)
+        (make-vv-pair '>= >=)
+        (make-vv-pair 'modulo modulo)
+        (make-vv-pair 'sqrt sqrt)
+        (make-vv-pair 'abs abs)
+        (make-vv-pair 'integer? integer?)
         (make-vv-pair 'display display)
         (make-vv-pair 'newline newline)))
 (define primitive-names (map vv-pair-variable primitive-table))
@@ -725,11 +837,18 @@
 (define [announce-output str] (newline) (displayln str))
 (define [user-print object] (displayln object))
 (define [driver-loop]
-  (prompt-for-input input-prompt)
-  (let ([input (read)])
-    (let ([output (force-it (evlt (analyze (input->tagged-expr input))
-                                  the-global-environment))])
-      (announce-output output-prompt)
-      (user-print output)))
-  (driver-loop))
+  (define [wired-drive]
+    (prompt-for-input input-prompt)
+    (let ([input (read)])
+      (evlt (analyze (input->tagged-expr input))
+            the-global-environment
+            (lambda [v b]
+              (announce-output output-prompt)
+              (user-print v)
+              (wired-drive b))
+            (lambda []
+              (displayln "All possibilitys done.")
+              (driver-loop)))))
+  (wired-drive))
+
 (driver-loop)
