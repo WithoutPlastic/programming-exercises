@@ -637,7 +637,7 @@
 (define [amb-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'amb-expr])
 (define [amb-expr-exprs amb-expr] (tagged-expr-body amb-expr))
 (define [input->amb-expr input]
-  [and [list input] [< 1 (length input)] [eq? (car input) 'amb]
+  [and [list? input] [< 1 (length input)] [eq? (car input) 'amb]
        (make-amb-expr (map input->tagged-expr (cdr input)))])
 (add-input->tagged-expr-proc input->amb-expr)
 (define [analyze-amb-expr amb-expr]
