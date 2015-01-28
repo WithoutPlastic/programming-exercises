@@ -656,6 +656,32 @@
     (iter analyzed-exprs goback)))
 (register-tagged-expr-eval 'amb-expr eval-amb-expr)
 
+;Ramb expr
+(define [make-ramb-expr exprs] (cons 'ramb-expr exprs))
+(define [ramb-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'ramb-expr])
+(define [ramb-expr-exprs ramb-expr] (tagged-expr-body ramb-expr))
+(define [input->ramb-expr input]
+  [and [list? input] [< 1 (length input)] [eq? (car input) 'ramb]
+       (make-ramb-expr (map input->tagged-expr (cdr input)))])
+(add-input->tagged-expr-proc input->ramb-expr)
+(define [analyze-ramb-expr ramb-expr]
+  (let ([analyzed-exprs (map analyze (ramb-expr-exprs ramb-expr))])
+    (make-ramb-expr analyzed-exprs)))
+(register-tagged-expr-analyze 'ramb-expr analyze-ramb-expr)
+(define [eval-ramb-expr analyzed-ramb-expr env goahead goback]
+  (let ([analyzed-exprs (map analyze (ramb-expr-exprs ramb-expr))])
+    (define [iter remaining back]
+      (if [null? remaining]
+        (back)
+        (let* ([random-idx (random (length remaining))]
+               [selected-elt (list-ref remaining random-idx)]
+               [rest-elts (append (take remaining random-idx)
+                                  (drop remaining (+ random-idx 1)))])
+          (evlt selected-elt env goahead (lambda [] (iter rest-elts back))))
+        (evlt)))
+    (iter analyzed-exprs goback)))
+(register-tagged-expr-eval 'ramb-expr eval-ramb-expr)
+
 ;;Named let tag expr
 ;(define [make-named-let-expr self pa-pairs exprs]
 ;  (cons 'named-let self pa-pairs exprs))
