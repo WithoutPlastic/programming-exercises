@@ -162,9 +162,9 @@
 (define [input->tagged-expr input]
   [ormap (lambda [x] (x input)) 
          (append (filter (lambda [x] [not [eq? x input->procedure-expr]])
-                      input->tagged-expr-list)
+                         input->tagged-expr-list)
                  (filter (lambda [x] [eq? x input->procedure-expr])
-                      input->tagged-expr-list))])
+                         input->tagged-expr-list))])
 
 ;Define tagged expr analyze proc table
 (define tagged-expr-analyze-table (make-hash))
@@ -242,10 +242,6 @@
 (define [eval-variable-expr analyzed-variable-expr env]
   (lookup-variable-value env (variable-expr-symbol analyzed-variable-expr)))
 (register-tagged-expr-eval 'variable-expr eval-variable-expr)
-
-(define [self-evaluate-expr? tagged-expr]
-  [or [number-expr? tagged-expr] [string-expr? tagged-expr]
-      [quote-expr? tagged-expr] [variable-expr? tagged-expr]])
 
 ;And expr
 (define [make-and-expr cdts] (cons 'and-expr cdts))
@@ -411,6 +407,8 @@
 (define [lambda-expr-exprs tagged-expr] (cdr (tagged-expr-body tagged-expr)))
 (define [input->lambda-expr input]
   [and [list? input] [< 2 (length input)] [eq? (car input) 'lambda]
+       [or [symbol? (cadr input)]
+           [and [list? (cadr input)] [andmap symbol? (cadr input)]]]
        (make-lambda-expr (cadr input) (map input->tagged-expr (cddr input)))])
 (add-input->tagged-expr-proc input->lambda-expr)
 (define [analyze-lambda-expr lambda-expr]
@@ -439,7 +437,7 @@
   [tagged-expr-tag-eq? tagged-expr 'define-expr])
 (define [definition-expr-variable definition-expr]
   (car (tagged-expr-body definition-expr)))
-(define [definition-expr-value definition-expr]
+(define [definition-expr-expr definition-expr]
   (cdr (tagged-expr-body definition-expr)))
 (define [input->definition-expr input]
   (cond ([and [list? input] [= (length input) 3] [eq? (car input) 'define]
@@ -455,13 +453,13 @@
 (add-input->tagged-expr-proc input->definition-expr)
 (define [analyze-definition-expr definition-expr]
   (make-definition-expr (definition-expr-variable definition-expr)
-                        (analyze (definition-expr-value definition-expr))))
+                        (analyze (definition-expr-expr definition-expr))))
 (register-tagged-expr-analyze 'define-expr analyze-definition-expr)
 (define [eval-definition-expr analyzed-definition-expr env]
   (define-variable!
     env
     (definition-expr-variable analyzed-definition-expr)
-    (evlt (definition-expr-value analyzed-definition-expr) env))
+    (evlt (definition-expr-expr analyzed-definition-expr) env))
   'definition-ok)
 (register-tagged-expr-eval 'define-expr eval-definition-expr)
 
@@ -513,7 +511,7 @@
 (define [assignment-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'set!-expr])
 (define [assignment-expr-variable assignment-expr]
   (car (tagged-expr-body assignment-expr)))
-(define [assignment-expr-value assignment-expr]
+(define [assignment-expr-expr assignment-expr]
   (cdr (tagged-expr-body assignment-expr)))
 (define [input->assignment-expr input]
   [and [list? input] [= 3 (length input)] [eq? (car input) 'set!]
@@ -522,13 +520,13 @@
 (add-input->tagged-expr-proc input->assignment-expr)
 (define [analyze-assignment-expr assignment-expr]
   (let ([variable (assignment-expr-variable assignment-expr)]
-        [analyzed-value (analyze (assignment-expr-value assignment-expr))])
+        [analyzed-value (analyze (assignment-expr-expr assignment-expr))])
     (make-assignment-expr variable analyzed-value)))
 (register-tagged-expr-analyze 'set!-expr analyze-assignment-expr)
 (define [eval-assignment-expr analyzed-assignment-expr env]
   (define-variable! env
                     (assignment-expr-variable analyzed-assignment-expr)
-                    (evlt (assignment-expr-value analyzed-assignment-expr) env))
+                    (evlt (assignment-expr-expr analyzed-assignment-expr) env))
   'assignment-ok)
 (register-tagged-expr-eval 'set!-expr eval-assignment-expr)
 
@@ -547,7 +545,7 @@
   (frame-remove! (env-head env) (unbound-expr-symbol analyzed-unbound-expr)))
 (register-tagged-expr-eval 'unbound!-expr eval-unbound-expr)
 
-;Procedure
+;Procedure expr
 (define [make-procedure-expr variable args]
   (cons 'procedure-expr (cons variable args)))
 (define [procedure-expr? tagged-expr]
@@ -645,7 +643,7 @@
 ;           (map definition-expr-variable definition-exprs))
 ;      (append (map (lambda [var val] (list 'set!-expr var val))
 ;                   (map definition-expr-variable definition-exprs)
-;                   (map definition-expr-value definition-exprs))
+;                   (map definition-expr-expr definition-exprs))
 ;              remaining-exprs))))
 ;(define [extract-defines->let-expr exprs]
 ;  (let* ([scan-result (scan-out-defines exprs)]
@@ -723,9 +721,9 @@
 
 (define input-prompt ";;; L-Eval input:")
 (define output-prompt ";;; L-Eval value:")
-(define [prompt-for-input str] (newline) (newline) (display str) (newline))
-(define [announce-output str] (newline) (display str) (newline))
-(define [user-print object] (display object))
+(define [prompt-for-input str] (newline) (newline) (displayln str))
+(define [announce-output str] (newline) (displayln str))
+(define [user-print object] (displayln object))
 (define [driver-loop]
   (prompt-for-input input-prompt)
   (let ([input (read)])

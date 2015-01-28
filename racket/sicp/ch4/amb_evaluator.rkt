@@ -138,7 +138,7 @@
          (append (filter (lambda [x] [not [eq? x input->procedure-expr]])
                          input->tagged-expr-list)
                  (filter (lambda [x] [eq? x input->procedure-expr])
-                      input->tagged-expr-list))])
+                         input->tagged-expr-list))])
 
 ;Define tagged expr analyze proc table
 (define tagged-expr-analyze-table (make-hash))
