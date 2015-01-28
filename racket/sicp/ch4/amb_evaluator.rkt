@@ -560,6 +560,43 @@
           goback)))
 (register-tagged-expr-eval 'set!-expr eval-assignment-expr)
 
+;Permanent assignment expr
+(define [make-permanent-assignment-expr variable new-value]
+  (cons 'permanent-set!-expr (cons variable new-value)))
+(define [permanent-assignment-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'permanent-set!-expr])
+(define [permanent-assignment-expr-variable permanent-assignment-expr]
+  (car (tagged-expr-body permanent-assignment-expr)))
+(define [permanent-assignment-expr-expr permanent-assignment-expr]
+  (cdr (tagged-expr-body permanent-assignment-expr)))
+(define [input->permanent-assignment-expr input]
+  [and [list? input] [= 3 (length input)] [eq? (car input) 'permanent-set!]
+       [symbol? (cadr input)]
+       (make-permanent-assignment-expr (cadr input)
+                                       (input->tagged-expr (caddr input)))])
+(add-input->tagged-expr-proc input->permanent-assignment-expr)
+(define [analyze-permanent-assignment-expr permanent-assignment-expr]
+  (let ([variable (permanent-assignment-expr-variable permanent-assignment-expr)]
+        [analyzed-value (analyze (permanent-assignment-expr-expr
+                                   permanent-assignment-expr))])
+    (make-permanent-assignment-expr variable analyzed-value)))
+(register-tagged-expr-analyze 'permanent-set!-expr analyze-permanent-assignment-expr)
+(define [eval-permanent-assignment-expr analyzed-permanent-assignment-expr
+                                        env
+                                        goahead
+                                        goback]
+  (let ([assign-variable (permanent-assignment-expr-variable
+                           analyzed-permanent-assignment-expr)]
+        [assign-value-expr (permanent-assignment-expr-expr
+                             analyzed-permanent-assignment-expr)])
+    (evlt assign-variable
+          env
+          (lambda [v b]
+            (set-variable-value! env assign-variable v)
+            (goahead 'permanent-assignment-ok b))
+          goback)))
+(register-tagged-expr-eval 'permanent-set!-expr eval-permanent-assignment-expr)
+
 ;Unbound expr
 (define [make-unbound-expr symbol] (cons 'unbound!-expr symbol))
 (define [unbound-expr? tagged-expr] [tagged-expr-tag-eq? tagged-expr 'unbound!-expr])
