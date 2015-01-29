@@ -747,6 +747,27 @@
           (lambda [] (eval alternative env goahead goback)))))
 (register-tagged-expr-eval 'if-fail-expr eval-if-fail-expr)
 
+;Require expr
+(define [make-require-expr requirement] (cons 'require-expr requirement))
+(define [require-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'require-expr])
+(define [require-expr-requirement require-expr] (tagged-expr-body require-expr))
+(define [input->require-expr input]
+  [and [list? input] [= 2 (length input)] [eq? (car input) 'require]
+       (make-require-expr (input->tagged-expr (cadr input)))])
+(add-input->tagged-expr-proc input->require-expr)
+(define [analyze-require-expr require-expr]
+  (let ([analyzed-requirement (analyze (require-expr-requirement require-expr))])
+    (make-require-expr analyzed-requirement)))
+(register-tagged-expr-analyze analyze-require-expr)
+(define [eval-require-expr analyzed-require-expr env goahead goback]
+  (let ([requirement (require-expr-requirement analyzed-require-expr)])
+    (evlt requirement
+          env
+          (lambda [v b] (if [is-true? v] (goahead 'requirement-ok b) (b)))
+          goback)))
+(register-tagged-expr-eval eval-require-expr)
+
 ;;Named let tag expr
 ;(define [make-named-let-expr self pa-pairs exprs]
 ;  (cons 'named-let self pa-pairs exprs))
