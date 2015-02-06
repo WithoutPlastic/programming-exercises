@@ -203,8 +203,8 @@
   (hash-ref! tagged-expr-qeval-table tag))
 
 ;Constant assert database
-(define all-assert-exprs the-empty-stream)
-(define [get-all-assert-exprs] all-assert-exprs)
+(define all-assertions the-empty-stream)
+(define [get-all-assert-exprs] all-assertions)
 (define indexed-assert-expr-table (make-hash))
 (define [store-indexed-assert-exprs index-key datum]
   (hash-set! indexed-assert-expr-table index-key datum))
@@ -217,16 +217,17 @@
     (get-all-assert-exprs)))
 (define [add-assert-expr! domain key value]
   (let ([index-key (constant-symbol-expr-symbol domain)]
-        [datum (cons domain (cons key value))])
+        [datum (cons domain (cons key value))]
+        [old-all-assertions all-assertions])
     (store-indexed-assert-exprs 
       index-key
       (stream-cons datum (get-indexed-assert-exprs index-key)))
-    (set! all-assert-exprs (stream-cons datum all-assert-exprs)))
+    (set! all-assertions (stream-cons datum old-all-assertions)))
   'add-assert-ok)
 
 ;Rule database
-(define all-rule-exprs the-empty-stream)
-(define [get-all-rule-exprs] all-rule-exprs)
+(define all-rules the-empty-stream)
+(define [get-all-rule-exprs] all-rules)
 (define indexed-rule-expr-table (make-hash))
 (define [store-indexed-rule-exprs index-key datum]
   (hash-set! indexed-rule-expr-table index-key datum))
@@ -239,11 +240,12 @@
     (get-all-rule-exprs)))
 (define [add-rule-expr! name conclusion details]
   (let ([index-key (constant-symbol-expr-symbol name)]
-        [datum (cons name (cons conclusion details))])
+        [datum (cons name (cons conclusion details))]
+        [old-all-rules all-rules])
     (store-indexed-rule-exprs
       index-key
       (stream-cons datum (get-indexed-rule-exprs index-key)))
-    (set! all-rule-exprs (stream-cons datum all-rule-exprs)))
+    (set! all-rules (stream-cons datum old-all-rules)))
   'add-rule-ok)
 
 ;Number expr
