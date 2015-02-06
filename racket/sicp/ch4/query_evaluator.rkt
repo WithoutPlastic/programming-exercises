@@ -19,6 +19,8 @@
     (stream-cons (proc (stream-car stream))
                  (stream-map proc (stream-cdr stream)))))
 (define [singleton-stream x] (stream-cons x the-empty-stream))
+(define [singleton-stream? x]
+  [and [not [stream-empty? x]] [stream-empty? (stream-cdr x)]])
 (define [stream-foreach proc stream]
   (unless [stream-empty? stream]
     (proc (stream-car stream))
@@ -594,7 +596,7 @@
        [input-pattern? (cadr input)]])
 (define [input->negate-expr input]
   [and [input-negate? input]
-       (make-negate-expr (input->tagged-expr (cadr input)))])
+       (make-negate-expr (pattern-input->tagged-expr (cadr input)))])
 (add-input->tagged-expr-proc input->negate-expr)
 (register-tagged-expr-analyze 'negate-expr (lambda [x] x))
 (define [qeval-negate-expr analyzed-negate-expr bindings-stream]
@@ -606,6 +608,28 @@
           the-empty-stream)))
     bindings-stream))
 (register-tagged-expr-qeval 'negate-expr qeval-negate-expr)
+
+;Unique pattern expr
+(define [make-unique-expr pattern] (cons 'unique-expr pattern))
+(define [unique-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'unique-expr])
+(define unique-expr-pattern tagged-expr-body)
+(define [input-unique? input]
+  [and [list? input] [= 2 (length input)]
+       [eq? (car input) 'unique]
+       [input-pattern? (cadr input)]])
+(define [input->unique-expr input]
+  [and [input-unique? input]
+       [make-unique-expr (pattern-input->tagged-expr (cadr input))]])
+(add-input->tagged-expr-proc input->unique-expr)
+(register-tagged-expr-analyze 'unique-expr (lambda [x] x))
+(define [qeval-unique-expr analyzed-unique-expr bindings-stream]
+  (stream-mapflat
+    (lambda [bindings]
+      (let ([result (qeval (unique-expr-pattern analyzed-unique-expr))])
+        (if [singleton-stream? result] result the-empty-stream)))
+    bindings-stream))
+(register-tagged-expr-qeval 'unique-expr qeval-unique-expr)
 
 ;Lisp-value pattern expr
 (define [make-lisp-value-expr verdict] (cons 'lisp-value-expr verdict))
