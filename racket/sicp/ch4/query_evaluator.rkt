@@ -17,7 +17,7 @@
   (if [stream-empty? stream]
     the-empty-stream
     (stream-cons (proc (stream-car stream))
-                 (delay (stream-map proc (stream-cdr stream))))))
+                 (stream-map proc (stream-cdr stream)))))
 (define [singleton-stream x] (stream-cons x the-empty-stream))
 (define [stream-foreach proc stream]
   (unless [stream-empty? stream]
@@ -29,16 +29,17 @@
          (stream-cons (stream-car stream)
                       (stream-filter pred (stream-cdr stream))))
         (else (stream-filter pred (stream-cdr stream)))))
-(define [stream-append stream-a stream-b]
+(define [stream-append stream-a delayed-stream-b]
   (if [stream-empty? stream-a]
-    stream-b
+    (force delayed-stream-b)
     (stream-cons (stream-car stream-a)
-                 (stream-append (stream-cdr stream-a) stream-b))))
-(define [stream-interleave stream-a stream-b]
+                 (stream-append (stream-cdr stream-a) delayed-stream-b))))
+(define [stream-interleave stream-a delayed-stream-b]
   (if [stream-empty? stream-a]
-    stream-b
+    (force delayed-stream-b)
     (stream-cons (stream-car stream-a)
-                 (stream-interleave stream-b (stream-cdr stream-a)))))
+                 (stream-interleave (force delayed-stream-b)
+                                    (delay (stream-cdr stream-a))))))
 (define [stream-flattern stream]
   (if [stream-empty? stream]
     the-empty-stream
@@ -68,7 +69,7 @@
     (if [or [null? remaining-vars] [null? remaining-vals]]
       (bindings-body bindings)
       (stream-cons (make-binding (car remaining-vars) (car remaining-vals))
-                   (delay (iter (cdr remaining-vars) (cdr remaining-vals))))))
+                   (iter (cdr remaining-vars) (cdr remaining-vals)))))
   (if [= (length vars) (length vals)]
     (mcons 'bindings (iter vars vals))
     (error "binding variables to values length inconsist -- ADD-NEW-BINDINGS")))
