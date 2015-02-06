@@ -17,8 +17,10 @@
   (if [stream-empty? stream]
     the-empty-stream
     (stream-cons (proc (stream-car stream))
-                 (delay (stream-map proc (stream-cdr stream))))))
+                 (stream-map proc (stream-cdr stream)))))
 (define [singleton-stream x] (stream-cons x the-empty-stream))
+(define [singleton-stream? x]
+  [and [not [stream-empty? x]] [stream-empty? (stream-cdr x)]])
 (define [stream-foreach proc stream]
   (unless [stream-empty? stream]
     (proc (stream-car stream))
@@ -29,16 +31,17 @@
          (stream-cons (stream-car stream)
                       (stream-filter pred (stream-cdr stream))))
         (else (stream-filter pred (stream-cdr stream)))))
-(define [stream-append stream-a stream-b]
+(define [stream-append stream-a delayed-stream-b]
   (if [stream-empty? stream-a]
-    stream-b
+    (force delayed-stream-b)
     (stream-cons (stream-car stream-a)
-                 (stream-append (stream-cdr stream-a) stream-b))))
-(define [stream-interleave stream-a stream-b]
+                 (stream-append (stream-cdr stream-a) delayed-stream-b))))
+(define [stream-interleave stream-a delayed-stream-b]
   (if [stream-empty? stream-a]
-    stream-b
+    (force delayed-stream-b)
     (stream-cons (stream-car stream-a)
-                 (stream-interleave stream-b (stream-cdr stream-a)))))
+                 (stream-interleave (force delayed-stream-b)
+                                    (delay (stream-cdr stream-a))))))
 (define [stream-flattern stream]
   (if [stream-empty? stream]
     the-empty-stream
@@ -68,7 +71,7 @@
     (if [or [null? remaining-vars] [null? remaining-vals]]
       (bindings-body bindings)
       (stream-cons (make-binding (car remaining-vars) (car remaining-vals))
-                   (delay (iter (cdr remaining-vars) (cdr remaining-vals))))))
+                   (iter (cdr remaining-vars) (cdr remaining-vals)))))
   (if [= (length vars) (length vals)]
     (mcons 'bindings (iter vars vals))
     (error "binding variables to values length inconsist -- ADD-NEW-BINDINGS")))
@@ -203,8 +206,8 @@
   (hash-ref! tagged-expr-qeval-table tag))
 
 ;Constant assert database
-(define all-assert-exprs the-empty-stream)
-(define [get-all-assert-exprs] all-assert-exprs)
+(define all-assertions the-empty-stream)
+(define [get-all-assert-exprs] all-assertions)
 (define indexed-assert-expr-table (make-hash))
 (define [store-indexed-assert-exprs index-key datum]
   (hash-set! indexed-assert-expr-table index-key datum))
@@ -217,16 +220,17 @@
     (get-all-assert-exprs)))
 (define [add-assert-expr! domain key value]
   (let ([index-key (constant-symbol-expr-symbol domain)]
-        [datum (cons domain (cons key value))])
+        [datum (cons domain (cons key value))]
+        [old-all-assertions all-assertions])
     (store-indexed-assert-exprs 
       index-key
       (stream-cons datum (get-indexed-assert-exprs index-key)))
-    (set! all-assert-exprs (stream-cons datum all-assert-exprs)))
+    (set! all-assertions (stream-cons datum old-all-assertions)))
   'add-assert-ok)
 
 ;Rule database
-(define all-rule-exprs the-empty-stream)
-(define [get-all-rule-exprs] all-rule-exprs)
+(define all-rules the-empty-stream)
+(define [get-all-rule-exprs] all-rules)
 (define indexed-rule-expr-table (make-hash))
 (define [store-indexed-rule-exprs index-key datum]
   (hash-set! indexed-rule-expr-table index-key datum))
@@ -239,11 +243,12 @@
     (get-all-rule-exprs)))
 (define [add-rule-expr! name conclusion details]
   (let ([index-key (constant-symbol-expr-symbol name)]
-        [datum (cons name (cons conclusion details))])
+        [datum (cons name (cons conclusion details))]
+        [old-all-rules all-rules])
     (store-indexed-rule-exprs
       index-key
       (stream-cons datum (get-indexed-rule-exprs index-key)))
-    (set! all-rule-exprs (stream-cons datum all-rule-exprs)))
+    (set! all-rules (stream-cons datum old-all-rules)))
   'add-rule-ok)
 
 ;Number expr
@@ -591,7 +596,7 @@
        [input-pattern? (cadr input)]])
 (define [input->negate-expr input]
   [and [input-negate? input]
-       (make-negate-expr (input->tagged-expr (cadr input)))])
+       (make-negate-expr (pattern-input->tagged-expr (cadr input)))])
 (add-input->tagged-expr-proc input->negate-expr)
 (register-tagged-expr-analyze 'negate-expr (lambda [x] x))
 (define [qeval-negate-expr analyzed-negate-expr bindings-stream]
@@ -603,6 +608,28 @@
           the-empty-stream)))
     bindings-stream))
 (register-tagged-expr-qeval 'negate-expr qeval-negate-expr)
+
+;Unique pattern expr
+(define [make-unique-expr pattern] (cons 'unique-expr pattern))
+(define [unique-expr? tagged-expr]
+  [tagged-expr-tag-eq? tagged-expr 'unique-expr])
+(define unique-expr-pattern tagged-expr-body)
+(define [input-unique? input]
+  [and [list? input] [= 2 (length input)]
+       [eq? (car input) 'unique]
+       [input-pattern? (cadr input)]])
+(define [input->unique-expr input]
+  [and [input-unique? input]
+       [make-unique-expr (pattern-input->tagged-expr (cadr input))]])
+(add-input->tagged-expr-proc input->unique-expr)
+(register-tagged-expr-analyze 'unique-expr (lambda [x] x))
+(define [qeval-unique-expr analyzed-unique-expr bindings-stream]
+  (stream-mapflat
+    (lambda [bindings]
+      (let ([result (qeval (unique-expr-pattern analyzed-unique-expr))])
+        (if [singleton-stream? result] result the-empty-stream)))
+    bindings-stream))
+(register-tagged-expr-qeval 'unique-expr qeval-unique-expr)
 
 ;Lisp-value pattern expr
 (define [make-lisp-value-expr verdict] (cons 'lisp-value-expr verdict))
