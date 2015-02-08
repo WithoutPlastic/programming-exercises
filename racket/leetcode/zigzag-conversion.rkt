@@ -40,7 +40,7 @@
         (append (extract-elts) (iter (add1 idx)))
         '()))
 
-    (list->string (iter 0))))
+    (if [= row 1] str (list->string (iter 0)))))
 
 (define test-string "PAYPALISHIRING")
 
