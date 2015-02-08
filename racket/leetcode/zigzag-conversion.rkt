@@ -42,6 +42,30 @@
 
     (if [= row 1] str (list->string (iter 0)))))
 
+(define [alter-zigzag-encode str row]
+  (let* ([zig-size (- (* 2 row) 2)]
+         [char-list (string->list str)]
+         [len (length char-list)])
+    (define [iter idx]
+      (define [extract-elts cnt]
+        (let ([base (+ idx (* zig-size cnt))])
+          (cond ([< (sub1 len) base] '())
+                ([or [= idx 0] [= idx (sub1 row)]]
+                 (cons (list-ref char-list base) (extract-elts (add1 cnt))))
+                (else
+                  (let ([extra-idx (+ base (- zig-size (* 2 idx)))])
+                    (if [< (sub1 len) extra-idx]
+                      (cons (list-ref char-list base) '())
+                      (cons (list-ref char-list base)
+                            (cons (list-ref char-list (+ base (- zig-size (* 2 idx))))
+                                  (extract-elts (add1 cnt))))))))))
+      (if [< idx row]
+        (append (extract-elts 0) (iter (add1 idx)))
+        '()))
+
+    (if [= row 1] str (list->string (iter 0)))))
+
 (define test-string "PAYPALISHIRING")
 
-(zigzag-encode test-string 3)
+;(zigzag-encode test-string 3)
+(alter-zigzag-encode test-string 4)
