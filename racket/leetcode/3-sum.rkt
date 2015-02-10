@@ -47,7 +47,7 @@
                      (append (find-with-ba (car remainings) target)
                              (iter (cdr remainings))))))
 
-            (iter rest-aboves))
+            (if [< target 0] (iter rest-aboves) (iter rest-belows)))
 
           (define [find-with-ba below above]
             (let* ([left-trys (remove-two-elts-from ints below above =)]
@@ -63,9 +63,10 @@
       (if [and [pair? remaining-belows] [pair? remaining-aboves]]
         (continue) '()))
 
-    (if [< 2 (length (filter (lambda [x] [= x 0]) ints))]
-      (cons '(0 0 0) (iter unq-b-zeros unq-a-zeros))
-      (iter unq-b-zeros unq-a-zeros))))
+    (let ([result (iter unq-b-zeros unq-a-zeros)])
+      (if [< 2 (length (filter (lambda [x] [= x 0]) ints))]
+        (cons '(0 0 0) result)
+        result))))
 
 (define test-ints-a '(-1 0 1 2 -1 -4))
 (define test-ints-b '(-1 0 0 0 -1 1 2 -1 -4 7 12 -8 -3 -3 -10))
