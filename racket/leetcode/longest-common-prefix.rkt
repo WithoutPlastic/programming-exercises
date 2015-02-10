@@ -1,6 +1,6 @@
 #lang racket
 
-;Problem
+;Problem:
 ;Write a function to find the longest common prefix string amongst an array of
 ;strings.
 
@@ -8,18 +8,12 @@
   (let ([chars-list (map string->list strings)])
     (define [iter remainings idx]
       (define [split-common strs]
-        (define [continue]
-          (let* ([first-str (car strs)]
-                 [fstr-fchar (list-ref first-str idx)]
-                 [same-prefix? (lambda [x] [eq? (list-ref x idx) fstr-fchar])]
-                 [same-fchar-strs (filter same-prefix? (cdr strs))]
-                 [others-strs (filter-not same-prefix? (cdr strs))])
-            (if [null? same-fchar-strs]
-              (split-common others-strs)
-              (cons (cons first-str same-fchar-strs)
-                    (split-common others-strs)))))
-
-        (if [null? strs] '() (continue)))
+        (let* ([fchars (map car strs)]
+               [unq-f-chars (remove-duplicates fchars)]
+               [eq-fchar?s (map (lambda [x] (lambda [s] [eq? (car s) x]))
+                                unq-f-chars)]
+               [matched-groups (map (lambda [x] (filter x strs)) eq-fchar?s)])
+          (filter (lambda [x] [< 1 (length x)]) matched-groups)))
 
       (let* ([len-filter (lambda [s] [< idx (length s)])]
              [l-remainings (map (lambda [x] (filter len-filter x)) remainings)])
