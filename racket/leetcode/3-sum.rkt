@@ -50,10 +50,12 @@
             (if [< target 0] (iter rest-aboves) (iter rest-belows)))
 
           (define [find-with-ba below above]
-            (let* ([left-trys (remove-two-elts-from ints below above =)]
+            (let* ([w/o-ba-ints (remove-two-elts-from ints below above =)]
+                   [between-ba? (lambda [x] [and [<= x above] [<= below x]])]
+                   [between-ba-ints (filter between-ba? w/o-ba-ints)]
                    [sum (lambda [x] (+ below above x))]
                    [sum-equal-zero? (lambda [x] [= (sum x) 0])]
-                   [matchs (filter sum-equal-zero? left-trys)])
+                   [matchs (filter sum-equal-zero? between-ba-ints)])
               (if [null? matchs] '() (list (list below (car matchs) above)))))
 
           (append (find-with first-below) (find-with first-above)
