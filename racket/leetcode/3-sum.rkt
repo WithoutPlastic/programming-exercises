@@ -54,9 +54,9 @@
                    [between-ba? (lambda [x] [and [<= x above] [<= below x]])]
                    [between-ba-ints (filter between-ba? w/o-ba-ints)]
                    [sum (lambda [x] (+ below above x))]
-                   [sum-equal-zero? (lambda [x] [= (sum x) 0])]
-                   [matchs (filter sum-equal-zero? between-ba-ints)])
-              (if [null? matchs] '() (list (list below (car matchs) above)))))
+                   [sum-equal-zero? (lambda [x] [and [= (sum x) 0] x])]
+                   [match-num (ormap sum-equal-zero? between-ba-ints)])
+              (if match-num (list (list below match-num above)) '())))
 
           (append (find-with first-below) (find-with first-above)
                   (find-with-ba first-below first-above)
