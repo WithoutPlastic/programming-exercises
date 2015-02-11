@@ -5,10 +5,7 @@
 ;digits are stored in reverse order and each of their nodes contain a single
 ;digit. Add the two numbers and return it as a linked list.
 
-(define [make-node payload next] (mcons payload next))
-(define node-payload mcar)
-(define node-next mcdr)
-(define [last-node? node] [eq? (node-next node) '()])
+(require "linked-node.rkt")
 
 (define [add-two-numbers num-a num-b]
   (define [iter remaining-a remaining-b cin]

@@ -13,15 +13,7 @@
 ;
 ;Note: Given n will always be valid. Try to do this in one pass.
 
-;Utils
-(define node-payload mcar)
-(define node-next mcdr)
-(define [set-node-payload! node payload] (set-mcar! node payload))
-(define [set-node-next! node next] (set-mcdr! node next))
-(define [make-node payload next] (mcons payload next))
-(define [last-node? node] [null? (node-next node)])
-(define [make-linked-list node] (mcons 'linked-list node))
-(define linked-list-body mcdr)
+(require "linked-node.rkt")
 
 (define [n-node-next node n]
   (if [< 0 n] (n-node-next (node-next node) (sub1 n)) node))
