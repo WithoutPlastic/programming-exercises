@@ -31,7 +31,7 @@
 
       (if [null? remainings] (exit-proc remainings) (continue)))
 
-    (iter chars (lambda args true))))
+    (iter chars (const true))))
 
 (define valid-string "{[]({[[[()]]]})}")
 (define invalid-string "{[]({[[[()]]]}){}")
