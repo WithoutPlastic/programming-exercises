@@ -11,7 +11,7 @@
 (define op #\() (define cp #\))
 
 (define [repeat-parenthesis n]
-  (append (build-list n (const op)) (build-list n (const cp))))
+  (append (make-list n op) (make-list n cp)))
 
 (define [repeat-prefix n]
   (let ([prefix-range (range 1 n)])
@@ -25,9 +25,7 @@
   (let ([enclosing-repeats (range (- n 2) 0 -1)])
     (apply append
            (map (lambda [r]
-                  (map (lambda [x] (append (build-list r (const op))
-                                           x
-                                           (build-list r (const cp)))) 
+                  (map (lambda [x] (append (make-list r op) x (make-list r cp)))
                        (repeat-prefix (- n r))))
                 enclosing-repeats))))
 
