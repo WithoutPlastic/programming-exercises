@@ -21,13 +21,13 @@
 
 (define [combination-sum candidates target]
   (let* ([sorted-nums (sort (remove-duplicates candidates) <)]
-         [valids (filter (lambda [x] [<= x target]) sorted-nums)])
+         [valids (filter (curryr <= target) sorted-nums)])
     (define [with-smallest-selected smallest]
       (define [repeat n]
         (let ([slice (make-list n smallest)]
               [repeat-sum (* smallest n)])
           (define [continue]
-            (append (map (lambda [x] (append slice x))
+            (append (map (curry append slice)
                          (combination-sum (cdr valids) (- target repeat-sum)))
                     (repeat (add1 n))))
 
