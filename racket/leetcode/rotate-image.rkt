@@ -13,3 +13,5 @@
 (define test-matrix (list '(1 2 3) '(4 5 6) '(7 8 9)))
 
 (rotate test-matrix)
+
+;Note: About in-place rotate, those swap elements row/col -> col/(4 - row)
