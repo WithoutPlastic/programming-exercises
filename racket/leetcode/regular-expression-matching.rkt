@@ -12,9 +12,9 @@
 ;bool isMatch(const char *s, const char *p)
 ;
 ;Some examples:
-;isMatch("aa","a") → false
-;isMatch("aa","aa") → true
-;isMatch("aaa","aa") → false
+;isMatch("aa", "a") → false
+;isMatch("aa", "aa") → true
+;isMatch("aaa", "aa") → false
 ;isMatch("aa", "a*") → true
 ;isMatch("aa", ".*") → true
 ;isMatch("ab", ".*") → true
