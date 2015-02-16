@@ -85,5 +85,7 @@
 
     (iter (list '()) 0)))
 
-(for-each (compose print-result (curryr generate-result 4)) (solve-n-queens 4))
-(for-each (compose print-result (curryr generate-result 8)) (solve-n-queens 8))
+(provide solve-n-queens)
+
+;(for-each (compose print-result (curryr generate-result 4)) (solve-n-queens 4))
+;(for-each (compose print-result (curryr generate-result 8)) (solve-n-queens 8))
