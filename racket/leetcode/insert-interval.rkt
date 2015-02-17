@@ -42,6 +42,8 @@
 
     (iter intervals '())))
 
+(provide insert)
+
 (define test-intervals-a (list '(1 . 3) '(6 . 9)))
 (define test-new-interval-a '(2 . 5))
 
@@ -54,7 +56,7 @@
 (define test-intervals-d (list '(1 . 2) '(3 . 5) '(6 . 7) '(8 . 10) '(14 . 16)))
 (define test-new-interval-d '(11 . 13))
 
-(insert test-intervals-a test-new-interval-a)
-(insert test-intervals-b test-new-interval-b)
-(insert test-intervals-c test-new-interval-c)
-(insert test-intervals-d test-new-interval-d)
+;(insert test-intervals-a test-new-interval-a)
+;(insert test-intervals-b test-new-interval-b)
+;(insert test-intervals-c test-new-interval-c)
+;(insert test-intervals-d test-new-interval-d)
