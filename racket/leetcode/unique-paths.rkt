@@ -14,13 +14,11 @@
 ;
 ;Note: m and n will be at most 100.
 
-(require "permutations-ii.rkt")
-
-(define down #\d)
-(define right #\r)
+(define [factorial n] (if [< 1 n] (* n (factorial (sub1 n))) 1))
 
 (define [unique-paths m n]
-  (let ([ops (append (make-list (sub1 m) down) (make-list (sub1 n) right))])
-    (length (permute-unique ops))))
+  (let ([down-ops (sub1 m)] [right-ops (sub1 n)])
+    (/ (factorial (+ down-ops right-ops))
+       (* (factorial down-ops) (factorial right-ops)))))
 
 (unique-paths 3 7)
