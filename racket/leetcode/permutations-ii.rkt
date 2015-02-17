@@ -18,6 +18,8 @@
                 (map (curry cons elt) (permute-unique (remove elt elts))))
               uniques)))))
 
+(provide permute-unique)
+
 (define test-ints '(1 1 2))
 
-(permute-unique test-ints)
+;(permute-unique test-ints)
