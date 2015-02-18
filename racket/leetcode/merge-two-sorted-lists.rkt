@@ -25,13 +25,7 @@
 
     (make-linked-list (iter head-a head-b))))
 
-(define test-a
-  (make-linked-list
-    (make-node -10 (make-node -8 (make-node -4 (make-node -1 (make-node 0
-    (make-node 0 (make-node 1 (make-node 7 (make-node 9 '())))))))))))
-(define test-b
-  (make-linked-list
-    (make-node -9 (make-node -7 (make-node -4 (make-node -1 (make-node 1
-    (make-node 2 (make-node 4 (make-node 6 (make-node 6 '())))))))))))
+(define test-a (new-linked-list -10 -8 -4 -1 0 0 1 7 9))
+(define test-b (new-linked-list -9 -7 -4 -1 1 2 4 6 6))
 
 (merge-two-sorted-lists test-a test-b)

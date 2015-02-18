@@ -28,12 +28,7 @@
 
     (iter body scout-node)))
 
-(define test-linked-list
-  (make-linked-list (make-node 1
-                    (make-node 2
-                    (make-node 3
-                    (make-node 4
-                    (make-node 5 '())))))))
+(define test-linked-list (new-linked-list 1 2 3 4 5))
 
 (displayln test-linked-list)
 (remove-n-th-from-end! test-linked-list 2)

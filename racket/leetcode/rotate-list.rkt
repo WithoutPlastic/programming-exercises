@@ -28,8 +28,6 @@
 
     (iter head scout)))
 
-(define test-list
-  (make-linked-list
-    (make-node 1 (make-node 2 (make-node 3 (make-node 4 (make-node 5 '())))))))
+(define test-list (new-linked-list 1 2 3 4 5))
 
 (rotate-right test-list 2)

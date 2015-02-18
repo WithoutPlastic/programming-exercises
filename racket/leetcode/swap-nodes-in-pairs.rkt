@@ -31,18 +31,8 @@
   (iter linked-node)
   linked-node)
 
-(define test-linked-list-a
-  (make-linked-list (make-node 1
-                    (make-node 2
-                    (make-node 3
-                    (make-node 4 '()))))))
-
-(define test-linked-list-b
-  (make-linked-list (make-node 1
-                    (make-node 2
-                    (make-node 3
-                    (make-node 4
-                    (make-node 5 '())))))))
+(define test-linked-list-a (new-linked-list 1 2 3 4))
+(define test-linked-list-b (new-linked-list 1 2 3 4 5))
 
 (swap-pairs test-linked-list-a)
 (swap-pairs test-linked-list-b)

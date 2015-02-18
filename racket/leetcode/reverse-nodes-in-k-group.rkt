@@ -43,11 +43,7 @@
   (when [< 1 k] (iter linked-nodes))
   linked-nodes)
 
-(define test-linked-list
-  (make-linked-list (make-node 1 (make-node 2 (make-node 3
-                    (make-node 4 (make-node 5 (make-node 6
-                    (make-node 7 (make-node 8 (make-node 9
-                    (make-node 10 '()))))))))))))
+(define test-linked-list (new-linked-list 1 2 3 4 5 6 7 8 9 10))
 
 ;(reverse-k-group test-linked-list 2)
 (reverse-k-group test-linked-list 4)
