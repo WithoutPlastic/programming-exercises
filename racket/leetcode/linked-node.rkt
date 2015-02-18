@@ -9,5 +9,12 @@
 (define [last-node? node] [null? (node-next node)])
 (define [make-linked-list node] (mcons 'linked-list node))
 (define linked-list-body mcdr)
+(define [new-linked-list . args]
+  (define [iter remaining]
+    (if [null? remaining]
+      '()
+      (make-node (car remaining) (iter (cdr remaining)))))
+
+  (make-linked-list (iter args)))
 
 (provide (all-defined-out))
