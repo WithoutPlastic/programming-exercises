@@ -10,7 +10,7 @@
 
 (require "linked-node.rkt")
 
-(define [delete-duplicates linked-list]
+(define [delete-duplicates! linked-list]
   (define [walk backward-node forward-node]
     (define [continue]
       (let ([f-val (node-payload forward-node)]
@@ -25,12 +25,10 @@
 
   (let ([first-node (node-next linked-list)])
     (when [nor [last-node? linked-list] [last-node? first-node]]
-      (walk linked-list first-node)))
-
-  linked-list)
+      (walk linked-list first-node))))
 
 (define test-linked-list-a (new-linked-list 1 1 2))
 (define test-linked-list-b (new-linked-list 1 1 2 3 3))
 
-(delete-duplicates test-linked-list-a)
-(delete-duplicates test-linked-list-b)
+(delete-duplicates! test-linked-list-a) (displayln test-linked-list-a)
+(delete-duplicates! test-linked-list-b) (displayln test-linked-list-b)
