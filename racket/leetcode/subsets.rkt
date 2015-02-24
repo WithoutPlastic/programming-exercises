@@ -24,19 +24,18 @@
 
 (define [n-permute lst n]
   (let ([len (length lst)])
-    (cond ([and [< 1 n] [< n len]]
-           (append (map (lambda [x] (cons (car lst) x))
-                        (n-permute (cdr lst) (sub1 n)))
-                   (n-permute (cdr lst) n)))
-          ([and [< 1 n] [= n len]] (list lst))
+    (cond ([= n 0] (list '()))
           ([= n 1] (map list lst))
-          (else (list '())))))
+          ([= n len] (list lst))
+          (else (append (map (λ [x] (cons (car lst) x))
+                             (n-permute (cdr lst) (sub1 n)))
+                        (n-permute (cdr lst) n))))))
 
 (define [subsets ints]
   (let* ([sorted-ints (sort ints <)] [len (length ints)]
          [result-lens (range 0 (add1 len))])
     (append-map (curry n-permute sorted-ints) result-lens)))
 
-(define test-s '(1 2 3))
+(define test-set '(1 2 3))
 
-(subsets test-s)
+(subsets test-set)
