@@ -12,21 +12,23 @@
 ;
 ;Your function should return length = 2, and A is now [1,2].
 
-(define [rm-duplicates sorted-nums]
-  (define [iter n remainings cnt]
+(define [rm-duplicates! boxed-sorted-nums]
+  (define [iter stub remaining accum cnt]
     (define [continue]
-      (let ([next-num (car remainings)]
-            [nexts (cdr remainings)])
-        (if [= n next-num]
-          (iter n nexts cnt)
-          (cons n (iter next-num nexts (add1 cnt))))))
+      (let ([first-r (car remaining)] [rest-rs (cdr remaining)])
+        (if [= stub first-r]
+          (iter stub rest-rs accum cnt)
+          (iter first-r rest-rs (append accum (list first-r)) (add1 cnt)))))
 
-    (if [null? remainings] (list n) (continue)))
+    (if [null? remaining] (cons accum cnt) (continue)))
   
-  (set! test-sorted-nums (iter (car sorted-nums) (cdr sorted-nums) 1))
-  (length test-sorted-nums))
+  (let* ([sorted-nums (unbox boxed-sorted-nums)]
+         [first-num (car sorted-nums)] [rest-nums (cdr sorted-nums)]
+         [result (iter first-num rest-nums (list first-num) 1)])
+    (set-box! boxed-sorted-nums (car result))
+    (cdr result)))
 
-(define test-sorted-nums '(0 0 0 0 0 1 2 3 4 5 6 7 7 8 9))
+(define test-sorted-nums (box '(0 0 0 0 0 1 2 3 4 5 6 7 7 8 9)))
 
-(rm-duplicates test-sorted-nums)
+(rm-duplicates! test-sorted-nums)
 test-sorted-nums
