@@ -40,16 +40,19 @@
 (require "lib/binary-tree.rkt")
 
 (define [inorder-traversal root]
-  (define [traversal node]
+  (define [traversal node result back]
     (if [null? node]
-      '()
-      (append (traversal (btree-left node))
-              (traversal (btree-right node))
-              (list (btree-payload node)))))
+      (back result)
+      (traversal
+        (btree-left node) result
+        (λ [ret]
+           (traversal
+             (btree-right node) ret
+             (λ [ret] (back (append ret (list (btree-payload node))))))))))
 
-  (append (list (btree-payload root))
-          (traversal (btree-left root))
-          (traversal (btree-right root))))
+  (traversal (btree-left root) '()
+             (λ [ret] (traversal (btree-right root) ret
+                                 (λ [ret] (cons (btree-payload root) ret))))))
 
 (define test-tree (btree-parse '(1 2 3 - - 4 - - 5)))
 
