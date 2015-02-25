@@ -12,7 +12,7 @@
 ;Given m, n satisfy the following condition:
 ;1 ≤ m ≤ n ≤ length of list.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [repeat p n] (if [< 1 n] (compose p (repeat p (sub1 n))) p))
 

@@ -11,7 +11,7 @@
 ;Given 1->4->3->2->5->2 and x = 3,
 ;return 1->2->2->4->3->5.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [my-partition linked-list x]
   (let ([head (node-next linked-list)]

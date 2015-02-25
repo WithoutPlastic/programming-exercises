@@ -8,7 +8,7 @@
 ;Given 1->1->2, return 1->2.
 ;Given 1->1->2->3->3, return 1->2->3.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [delete-duplicates! linked-list]
   (define [walk backward-node forward-node]

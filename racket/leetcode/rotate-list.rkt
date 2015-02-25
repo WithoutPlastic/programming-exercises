@@ -8,7 +8,7 @@
 ;Given 1->2->3->4->5->NULL and k = 2,
 ;return 4->5->1->2->3->NULL.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [repeat-node-next n]
   (if [< 1 n] (compose node-next (repeat-node-next (sub1 n))) node-next))

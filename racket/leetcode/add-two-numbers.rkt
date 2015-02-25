@@ -5,7 +5,7 @@
 ;digits are stored in reverse order and each of their nodes contain a single
 ;digit. Add the two numbers and return it as a linked list.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [add-two-numbers num-a num-b]
   (define [iter remaining-a remaining-b cin]

@@ -4,7 +4,7 @@
 ;Merge two sorted linked lists and return it as a new list. The new list should
 ;be made by splicing together the nodes of the first two list.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [merge-two-sorted-lists linked-list-a linked-list-b]
   (let ([head-a (linked-list-body linked-list-a)]

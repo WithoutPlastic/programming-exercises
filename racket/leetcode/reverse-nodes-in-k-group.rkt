@@ -18,7 +18,7 @@
 ;
 ;For k = 3, you should return: 3->2->1->4->5
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [create-n-node-next n] (apply compose (build-list n (const node-next))))
 (define [n-remaining? head n]

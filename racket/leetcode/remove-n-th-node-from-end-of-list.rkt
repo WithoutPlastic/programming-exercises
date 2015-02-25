@@ -13,7 +13,7 @@
 ;
 ;Note: Given n will always be valid. Try to do this in one pass.
 
-(require "linked-node.rkt")
+(require "lib/linked-node.rkt")
 
 (define [n-node-next node n]
   (if [< 0 n] (n-node-next (node-next node) (sub1 n)) node))
