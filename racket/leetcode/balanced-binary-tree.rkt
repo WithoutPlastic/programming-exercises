@@ -17,5 +17,5 @@
           ([btree-left-empty? root] [<= (btree-height right) 1])
           (else [<= (btree-height left) 1]))))
 
-(define test-tree (btree-parse '(a b e c d f - - - - - g - - -)))
+(define test-tree (btree-parse '(a b e c d f - - - - - g)))
 (balanced? test-tree)

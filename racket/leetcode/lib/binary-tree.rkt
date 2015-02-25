@@ -40,41 +40,49 @@
 (define [btree-serialize root]
   (define [null->padding-node x]
     (if [null? x] (make-btree-alone-node padding-sym) x))
+  (define [->result x] (if [null? x] padding-sym (btree-payload x)))
 
   (define [iter-level pending-nodes]
-    (let* ([next-pendings (append-map btree->branches pending-nodes)]
-           [filled-pendings (map null->padding-node next-pendings)]
-           [payloads (map btree-payload filled-pendings)])
-      (if [findf (negate null?) next-pendings]
-        (append payloads (iter-level filled-pendings))
-        '())))
+    (let* ([exted-pendings (append-map btree->branches pending-nodes)]
+           [results (map ->result exted-pendings)]
+           [next-pendings (filter-not null? exted-pendings)])
+      (if [null? next-pendings]
+        '()
+        (append results (iter-level next-pendings)))))
 
-  (cons (btree-payload root) (iter-level (list root))))
+  (cons (btree-payload root)
+        (dropf-right (iter-level (list root)) padding-sym?)))
 
 (define [btree-parse lst]
-  (define [padding-elt? idx] [eq? (list-ref lst idx) padding-sym])
-  (define [next-idx-pair idx] (list (sub1 (* (add1 idx) 2)) (* (add1 idx) 2)))
+  (define padded-lst (append lst (list padding-sym)))
+  (define lst-len (length padded-lst))
+  (define [padding-elt? idx]
+    [eq? (list-ref padded-lst idx) padding-sym])
+
+  (define [gen-idx-pairs base cnt]
+    (map (λ [s] (map (curry + 1 base) (list (* s 2) (add1 (* s 2)))))
+         (range 0 cnt)))
 
   (define [make-pair-nodes p]
-    (let ([l-elt (list-ref lst (car p))] [r-elt (list-ref lst (cadr p))])
+    (let ([l-elt (list-ref padded-lst (car p))]
+          [r-elt (list-ref padded-lst (cadr p))])
       (list (if [padding-sym? l-elt] '() (make-btree-alone-node l-elt))
             (if [padding-sym? r-elt] '() (make-btree-alone-node r-elt)))))
 
-  (define [iter nodes idxs]
-    (when [< (cadr (next-idx-pair (last idxs))) (length lst)]
-      (let* ([next-idx-pairs (map next-idx-pair idxs)]
-             [next-node-pairs (map make-pair-nodes next-idx-pairs)]
-             [all-idxs (apply append next-idx-pairs)]
-             [all-nodes (apply append next-node-pairs)]
-             [valid-next-idxs (filter-not padding-elt? all-idxs)]
-             [valid-next-nodes (filter-not null? all-nodes)])
-        (for-each (λ [n p] (btree-set-branches! n (car p) (cadr p)))
-                  nodes next-node-pairs)
-        (iter valid-next-nodes valid-next-idxs))))
+  (define [iter nodes base-idx]
+    (let* ([node-cnt (length nodes)]
+           [exted-idx-pairs (gen-idx-pairs base-idx node-cnt)]
+           [next-base-idx (cadr (last exted-idx-pairs))])
+      (when [< next-base-idx lst-len]
+        (let* ([exted-node-pairs (map make-pair-nodes exted-idx-pairs)]
+               [flattened-nodes (flatten exted-node-pairs)]
+               [next-nodes (filter-not null? flattened-nodes)])
+          (for-each (λ [n p] (btree-set-branches! n (car p) (cadr p)))
+                    nodes exted-node-pairs)
+          (iter next-nodes next-base-idx)))))
 
-  (when [not [null? lst]]
-    (let ([root (make-btree-alone-node (car lst))])
-      (iter (list root) (list 0))
-      root)))
+  (let ([root (make-btree-alone-node (car padded-lst))])
+    (iter (list root) 0)
+    root))
 
 (provide (all-defined-out))
