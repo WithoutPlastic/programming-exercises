@@ -9,13 +9,9 @@
 ;
 ;return ["255.255.11.135", "255.255.111.35"]. (Order does not matter)
 
-(define dot #\.)
-(define [char->number c] (- (char->integer c) 48))
-(define [chars->integer chars]
-  (let* ([len (length chars)]
-         [dec-weights (reverse (map (curry expt 10) (range 0 len)))])
-    (apply + (map * (map char->number chars) dec-weights))))
+(require "lib/char-number-convert.rkt")
 
+(define dot #\.)
 (define IP-ADDR-MAX-SLICE 256)
 (define IP-ADDR-SLICE-DROP-LAST (floor (/ IP-ADDR-MAX-SLICE 10)))
 (define IP-ADDR-SLICE-LAST-BIT (remainder IP-ADDR-MAX-SLICE 10))
@@ -28,7 +24,7 @@
              [first-num (char->number first-char)]
              [cur-slice (last accum)]
              [slice-len (length cur-slice)]
-             [slice-number (chars->integer cur-slice)]
+             [slice-number (chars->number cur-slice)]
              [exted-accum (append accum (list (list first-char)))]
              [exted-slice (list (append cur-slice (list first-char)))]
              [exted-slice-accum (append (drop-right accum 1) exted-slice)])
