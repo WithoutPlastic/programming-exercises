@@ -6,15 +6,12 @@
 ;
 ;Note: The numbers can be arbitrarily large and are non-negative.
 
-(define [char->number c] (- (char->integer c) 48))
-(define [number->char i] (integer->char (+ i 48)))
+(require "lib/char-number-convert.rkt")
 
 (define [cin multipled-nums]
   (define [cin ns]
     (define [continue]
-      (let* ([first-num (car ns)]
-             [second-num (cadr ns)]
-             [rest-nums (cddr ns)]
+      (let* ([first-num (car ns)] [second-num (cadr ns)] [rest-nums (cddr ns)]
              [r (remainder first-num 10)]
              [c (floor (/ first-num 10))])
         (cons r (cin (cons (+ second-num c) rest-nums)))))
@@ -25,8 +22,7 @@
     (reverse (cin (reverse w/-padding)))))
 
 (define [char-multiply-chars n-char n-chars]
-  (let ([num (char->number n-char)]
-        [nums (map char->number n-chars)])
+  (let ([num (char->number n-char)] [nums (map char->number n-chars)])
     (map (curry * num) nums)))
 
 (define [multiply factor-str str]
@@ -34,13 +30,11 @@
          [factor-len (length factor-chars)]
          [chars (string->list str)]
          [nums-list (map (curryr char-multiply-chars chars) factor-chars)]
-         [add-padding (map (lambda [x n]
-                             (append (make-list n 0)
-                                     x
-                                     (make-list (- (sub1 factor-len) n) 0)))
-                           nums-list
-                           (range 0 factor-len))]
-         [added-nums (apply map + add-padding)]
+         [fill-padding (map (λ [x n]
+                              (append (make-list n 0) x
+                                      (make-list (- (sub1 factor-len) n) 0)))
+                           nums-list (range 0 factor-len))]
+         [added-nums (apply map + fill-padding)]
          [cin-nums (cin added-nums)])
     (list->string
       (map number->char (if [= (car cin-nums) 0] (cdr cin-nums) cin-nums)))))
