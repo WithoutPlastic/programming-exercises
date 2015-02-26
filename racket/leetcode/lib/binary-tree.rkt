@@ -100,4 +100,14 @@
         ([or [null? root-a] [null? root-b]] false)
         (else (continue))))
 
+(define [btree-swap-branches! root]
+  (define [swap]
+    (let ([old-left-br (btree-left root)]
+          [old-right-br (btree-right root)])
+      (btree-set-left! root old-right-br)
+      (btree-set-right! root old-left-br)
+      root))
+
+  (when [btree-node? root] (swap)))
+
 (provide (all-defined-out))
