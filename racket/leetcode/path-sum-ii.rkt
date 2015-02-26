@@ -38,6 +38,6 @@
     false
     (filter (λ [p] [= sum (apply + p)]) (find-paths root))))
 
-(define test-tree (btree-parse '(5 4 8 11 - 13 4 7 2 - - - 5 1)))
+(define test-tree (btree-parse '(5 4 8 11 - 13 4 7 2 - - 5 1)))
 
 (get-paths-by-sum test-tree 22)
