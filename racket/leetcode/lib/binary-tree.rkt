@@ -87,4 +87,17 @@
     (iter (list root) 0)
     root))
 
+(define [btree-equal? root-a root-b]
+  (define [continue]
+    (let ([a-left-br (btree-left root-a)] [a-right-br (btree-right root-a)]
+          [b-left-br (btree-left root-b)] [b-right-br (btree-right root-b)]
+          [payload-a (btree-payload root-a)] [payload-b (btree-payload root-b)])
+      [and [equal? payload-a payload-b]
+           [btree-equal? a-left-br b-left-br]
+           [btree-equal? a-right-br b-right-br]]))
+
+  (cond ([and [null? root-a] [null? root-b]] true)
+        ([or [null? root-a] [null? root-b]] false)
+        (else (continue))))
+
 (provide (all-defined-out))
