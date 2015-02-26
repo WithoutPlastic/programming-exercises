@@ -11,25 +11,27 @@
 (require "lib/linked-node.rkt")
 
 (define [delete-duplicates! linked-list]
-  (define [iter head]
-    (when [nor [null? head] [last-node? head] [last-node? (node-next head)]]
-      (let* ([first-node (node-next head)]
-             [f-val (node-payload first-node)]
-             [second-node (node-next first-node)]
-             [s-val (node-payload second-node)])
-        (define [walk node]
-          (define [continue]
-            (let* ([next-node (node-next node)]
-                   [next-val (node-payload next-node)])
-              (if [eq? f-val next-val]
-                (walk next-node)
-                (begin (set-node-next! head next-node) (iter head)))))
+  (define [walk val lnode]
+    (if [lnode-last? lnode] '()
+      (let* ([next-lnode (lnode-next lnode)]
+             [next-val (lnode-payload next-lnode)])
+        (if [eq? val next-val]
+          (walk val next-lnode)
+          (iter next-lnode)))))
 
-          (if [last-node? node] (set-node-next! head '()) (continue)))
+  (define [iter remaining]
+    (if [lnode-last? remaining] remaining
+      (let* ([first-lnode remaining]
+             [first-val (lnode-payload first-lnode)]
+             [second-lnode (lnode-next first-lnode)]
+             [second-val (lnode-payload second-lnode)])
+        (if [eq? first-val second-val]
+          (walk first-val second-lnode)
+          (begin (lnode-set-next! first-lnode (iter second-lnode))
+                 first-lnode)))))
 
-        (if [eq? f-val s-val] (walk second-node) (iter first-node)))))
-
-  (iter linked-list))
+  (unless [linked-list-empty? linked-list]
+    (linked-list-set-body! linked-list (iter (linked-list-body linked-list)))))
 
 (define test-linked-list-a (new-linked-list 1 2 3 3 4 4 5))
 (define test-linked-list-b (new-linked-list 1 1 1 2 3))

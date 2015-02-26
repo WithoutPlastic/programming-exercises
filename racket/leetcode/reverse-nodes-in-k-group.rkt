@@ -20,25 +20,25 @@
 
 (require "lib/linked-node.rkt")
 
-(define [create-n-node-next n] (apply compose (build-list n (const node-next))))
+(define [create-n-lnode-next n] (apply compose (build-list n (const lnode-next))))
 (define [n-remaining? head n]
   (if [< 0 n]
-    [and [not [last-node? head]]
-         (n-remaining? (node-next head) (sub1 n))]
+    [and [not [lnode-last? head]]
+         (n-remaining? (lnode-next head) (sub1 n))]
     true))
 
 (define [reverse-k-group linked-nodes k]
   (define [reverse-section head tail]
-    (let* ([node-by-offset (lambda [offset] ((create-n-node-next offset) head))]
+    (let* ([node-by-offset (lambda [offset] ((create-n-lnode-next offset) head))]
            [elts (map node-by-offset (range 1 (add1 k)))]
            [hr-elts (cons head (reverse elts))]
            [lr-elts (reverse (cons tail elts))])
-      (for-each set-node-next! hr-elts lr-elts)))
+      (for-each set-lnode-next! hr-elts lr-elts)))
 
   (define [iter head]
     (when [n-remaining? head k]
-      (reverse-section head ((create-n-node-next (add1 k)) head))
-      (iter ((create-n-node-next k) head))))
+      (reverse-section head ((create-n-lnode-next (add1 k)) head))
+      (iter ((create-n-lnode-next k) head))))
 
   (when [< 1 k] (iter linked-nodes))
   linked-nodes)

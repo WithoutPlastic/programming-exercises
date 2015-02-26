@@ -7,40 +7,38 @@
 (require "lib/linked-node.rkt")
 (require "lib/binary-tree.rkt")
 
-(define double-node-next (compose node-next node-next))
+(define double-lnode-next (compose lnode-next lnode-next))
 
-(define [one-node-left? node]
-  [and [not [last-node? node]] [last-node? (node-next node)]])
+(define [one-lnode-left? node]
+  [and [not [lnode-last? node]] [lnode-last? (lnode-next node)]])
 
-(define [sorted-linked-list->bst linked-list]
-  (let* ([first-node (node-next linked-list)]
-         [second-node (node-next first-node)]
-         [first-payload (node-payload first-node)])
-    (define [split before-mid-node]
-      (let* ([mid-node (node-next before-mid-node)]
-             [after-mid-node (node-next mid-node)]
-             [mid-payload (node-payload mid-node)]
-             [new-node (make-btree-alone-node mid-payload)]
-             [right-linked-list (make-linked-list after-mid-node)])
-        (set-node-next! before-mid-node '())
-        (btree-set-left! new-node (sorted-linked-list->bst linked-list))
-        (btree-set-right! new-node (sorted-linked-list->bst right-linked-list))
-        new-node))
+(define [sorted-linked-list->bst linked-nodes]
+  (define [walk backward-lnode forward-lnode]
+    (if [or [lnode-last? forward-lnode] [one-lnode-left? forward-lnode]]
+      (split backward-lnode)
+      (walk (lnode-next backward-lnode) (double-lnode-next forward-lnode))))
 
-    (define [walk backward-node forward-node]
-      (if [or [last-node? forward-node] [one-node-left? forward-node]]
-        (split backward-node)
-        (walk (node-next backward-node) (double-node-next forward-node))))
+  (define [split pre-mid-lnode]
+    (let* ([mid-lnode (lnode-next pre-mid-lnode)]
+           [post-mid-lnode (lnode-next mid-lnode)]
+           [mid-payload (lnode-payload mid-lnode)]
+           [new-bnode (make-btree-alone-node mid-payload)])
+      (lnode-set-next! pre-mid-lnode '())
+      (btree-set-left! new-bnode (sorted-linked-list->bst linked-nodes))
+      (btree-set-right! new-bnode (sorted-linked-list->bst post-mid-lnode))
+      new-bnode))
 
-    (cond ([last-node? first-node] (make-btree-alone-node first-payload))
-          ([not [last-node? second-node]] (walk linked-list linked-list))
-          (else (let* ([second-payload (node-payload second-node)]
-                       [p-node (make-btree-alone-node second-payload)])
-                  (btree-set-left! p-node (make-btree-alone-node first-payload))
-                  p-node)))))
+  (let* ([first-lnode linked-nodes]
+         [second-lnode (lnode-next first-lnode)]
+         [first-payload (lnode-payload first-lnode)])
+    (cond ([lnode-last? first-lnode] (make-btree-alone-node first-payload))
+          ([not [lnode-last? second-lnode]] (walk first-lnode second-lnode))
+          (else
+            (let* ([second-payload (lnode-payload second-lnode)]
+                   [p-bnode (make-btree-alone-node second-payload)])
+              (btree-set-left! p-bnode (make-btree-alone-node first-payload))
+              p-bnode)))))
 
-(define test-linked-list
-  (new-linked-list
-    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23))
+(define test-linked-nodes (apply new-linked-nodes (range 0 24)))
 
-(sorted-linked-list->bst test-linked-list)
+(btree-serialize (sorted-linked-list->bst test-linked-nodes))

@@ -15,21 +15,17 @@
 
 (require "lib/linked-node.rkt")
 
-(define [n-node-next node n]
-  (if [< 0 n] (n-node-next (node-next node) (sub1 n)) node))
+(define [remove-n-th-from-end! lnodes n]
+  (define [n-lnode-next n] (apply compose (make-list n lnode-next)))
 
-(define [remove-n-th-from-end! linked-list n]
-  (let* ([body (linked-list-body linked-list)]
-         [scout-node (n-node-next body n)])
-    (define [iter cur-node scout-node]
-      (if [last-node? scout-node]
-        (set-node-next! cur-node (node-next (node-next cur-node)))
-        (iter (node-next cur-node) (node-next scout-node))))
+  (define [walk head forward-lnode]
+    (if [lnode-last? forward-lnode]
+      (lnode-set-next! head (lnode-next (lnode-next head)))
+      (walk (lnode-next head) (lnode-next forward-lnode))))
 
-    (iter body scout-node)))
+  (walk lnodes ((n-lnode-next n) lnodes)))
 
-(define test-linked-list (new-linked-list 1 2 3 4 5))
+(define test-linked-nodes (new-linked-nodes 1 2 3 4 5))
 
-(displayln test-linked-list)
-(remove-n-th-from-end! test-linked-list 2)
-(displayln test-linked-list)
+(remove-n-th-from-end! test-linked-nodes 2)
+(displayln test-linked-nodes)

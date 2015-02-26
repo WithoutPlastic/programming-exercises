@@ -7,25 +7,25 @@
 
 (require "lib/linked-node.rkt")
 
-(define [add-two-numbers num-a num-b]
+(define [add-two-numbers lnodes-a lnodes-b]
   (define [iter remaining-a remaining-b cin]
-    (let* ([a (node-payload remaining-a)]
-           [b (node-payload remaining-b)]
+    (let* ([a (lnode-payload remaining-a)]
+           [b (lnode-payload remaining-b)]
            [total (+ a b cin)]
            [next-cin (floor (/ total 10))]
            [result (remainder total 10)])
-      (cond ([last-node? remaining-a]
-             (make-node result (node-next remaining-b)))
-            ([last-node? remaining-b]
-             (make-node result (node-next remaining-a)))
-            (else (make-node result
-                             (iter (node-next remaining-a)
-                                   (node-next remaining-b)
-                                   next-cin))))))
-  (iter num-a num-b 0))
+      (cond ([lnode-last? remaining-a]
+             (make-lnode result (lnode-next remaining-b)))
+            ([lnode-last? remaining-b]
+             (make-lnode result (lnode-next remaining-a)))
+            (else (make-lnode result (iter (lnode-next remaining-a)
+                                           (lnode-next remaining-b)
+                                           next-cin))))))
 
-(define num-a (make-node 2 (make-node 4 (make-node 3 '()))))
-(define num-b (make-node 5 (make-node 6 (make-node 4 '()))))
-(define num-c (make-node 7 (make-node 5 (make-node 1 (make-node 8 '())))))
+  (iter lnodes-a lnodes-b 0))
 
-(add-two-numbers num-c num-b)
+(define nums-a (new-linked-nodes 2 4 3))
+(define nums-b (new-linked-nodes 5 6 4))
+(define nums-c (new-linked-nodes 7 5 1 8))
+
+(add-two-numbers nums-c nums-b)

@@ -11,21 +11,21 @@
 
 (require "lib/linked-node.rkt")
 
-(define double-node-next (compose node-next node-next))
-(define triple-node-next (compose node-next node-next node-next))
+(define double-lnode-next (compose lnode-next lnode-next))
+(define triple-lnode-next (compose lnode-next lnode-next lnode-next))
 
 (define [swap-pairs linked-node]
   (define [iter head]
     (define [continue]
-      (let ([next-one-node (node-next head)]
-            [next-two-node (double-node-next head)]
-            [next-three-node (triple-node-next head)])
-        (set-node-next! head next-two-node)
-        (set-node-next! next-two-node next-one-node)
-        (set-node-next! next-one-node next-three-node)
+      (let ([next-one-node (lnode-next head)]
+            [next-two-node (double-lnode-next head)]
+            [next-three-node (triple-lnode-next head)])
+        (set-lnode-next! head next-two-node)
+        (set-lnode-next! next-two-node next-one-node)
+        (set-lnode-next! next-one-node next-three-node)
         (iter next-one-node)))
 
-    (when [and [not [last-node? head]] [not [last-node? (node-next head)]]]
+    (when [and [not [lnode-last? head]] [not [lnode-last? (lnode-next head)]]]
       (continue)))
 
   (iter linked-node)

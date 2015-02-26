@@ -11,21 +11,18 @@
 (require "lib/linked-node.rkt")
 
 (define [delete-duplicates! linked-list]
-  (define [walk backward-node forward-node]
-    (define [continue]
-      (let ([f-val (node-payload forward-node)]
-            [b-val (node-payload backward-node)]
-            [next-node (node-next forward-node)])
-        (if [eq? f-val b-val]
-          (begin (set-node-next! backward-node next-node)
-                 (walk backward-node next-node))
-          (walk forward-node next-node))))
+  (define [iter lnode]
+    (unless [lnode-last? lnode]
+      (let* ([first-val (lnode-payload lnode)]
+             [next-lnode (lnode-next lnode)]
+             [next-val (lnode-payload next-lnode)])
+        (if [eq? first-val next-val]
+          (begin (lnode-set-next! lnode (lnode-next next-lnode))
+                 (iter lnode))
+          (iter next-lnode)))))
 
-    (unless [null? forward-node] (continue)))
-
-  (let ([first-node (node-next linked-list)])
-    (when [nor [last-node? linked-list] [last-node? first-node]]
-      (walk linked-list first-node))))
+  (unless [linked-list-empty? linked-list]
+    (iter (linked-list-body linked-list))))
 
 (define test-linked-list-a (new-linked-list 1 1 2))
 (define test-linked-list-b (new-linked-list 1 1 2 3 3))

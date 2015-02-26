@@ -1,20 +1,21 @@
 #lang racket
 
 ;Utils
-(define node-payload mcar)
-(define node-next mcdr)
-(define [set-node-payload! node payload] (set-mcar! node payload))
-(define [set-node-next! node next] (set-mcdr! node next))
-(define [make-node payload next] (mcons payload next))
-(define [last-node? node] [null? (node-next node)])
-(define [make-linked-list node] (mcons 'linked-list node))
-(define linked-list-body mcdr)
-(define [new-linked-list . args]
-  (define [iter remaining]
-    (if [null? remaining]
-      '()
-      (make-node (car remaining) (iter (cdr remaining)))))
+(define make-lnode mcons)
+(define lnode-payload mcar)
+(define lnode-next mcdr)
+(define lnode-set-payload! set-mcar!)
+(define lnode-set-next! set-mcdr!)
+(define lnode-last? (compose null? lnode-next))
+(define [new-linked-nodes . args]
+  (foldr (λ [n pn] (lnode-set-next! n pn) n) '()
+         (map (curryr make-lnode '()) args)))
 
-  (make-linked-list (iter args)))
+(define make-linked-list (curry mcons 'linked-list))
+(define linked-list-head lnode-payload)
+(define linked-list-body lnode-next)
+(define linked-list-set-body! lnode-set-next!)
+(define linked-list-empty? lnode-last?)
+(define new-linked-list (compose make-linked-list new-linked-nodes))
 
 (provide (all-defined-out))

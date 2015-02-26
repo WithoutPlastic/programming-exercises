@@ -10,21 +10,21 @@
 
 (require "lib/linked-node.rkt")
 
-(define [repeat-node-next n]
-  (if [< 1 n] (compose node-next (repeat-node-next (sub1 n))) node-next))
+(define [repeat-lnode-next n]
+  (if [< 1 n] (compose lnode-next (repeat-lnode-next (sub1 n))) lnode-next))
 
 (define [rotate-right head k]
-  (let ([scout ((repeat-node-next k) head)])
+  (let ([scout ((repeat-lnode-next k) head)])
     (define [iter h s]
       (define [rotate]
-        (let ([first-node (node-next head)]
-              [rotate-node (node-next h)])
-          (set-node-next! head rotate-node)
-          (set-node-next! s first-node)
-          (set-node-next! h '())
+        (let ([first-node (lnode-next head)]
+              [rotate-node (lnode-next h)])
+          (set-lnode-next! head rotate-node)
+          (set-lnode-next! s first-node)
+          (set-lnode-next! h '())
           head))
 
-      (if [null? (node-next s)] (rotate) (iter (node-next h) (node-next s))))
+      (if [null? (lnode-next s)] (rotate) (iter (lnode-next h) (lnode-next s))))
 
     (iter head scout)))
 

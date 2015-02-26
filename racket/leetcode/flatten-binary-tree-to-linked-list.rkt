@@ -35,19 +35,15 @@
 (require "lib/binary-tree.rkt")
 
 (define [tree-flatten root]
-  (define [iter tree-node tail-node back]
-    (define [continue]
-      (let* ([payload (btree-payload tree-node)]
-             [new-linked-node (make-node payload '())])
-        (set-node-next! tail-node new-linked-node)
-        (iter (btree-left tree-node)
-              new-linked-node
-              (λ [tn] (iter (btree-right tree-node) tn back)))))
-
-    (if [null? tree-node] (back tail-node) (continue)))
+  (define [iter bnode tail-lnode back]
+    (if [null? bnode] (back tail-lnode)
+      (let ([new-lnode (make-lnode (btree-payload bnode) '())])
+        (lnode-set-next! tail-lnode new-lnode)
+        (iter (btree-left bnode) new-lnode
+              (λ [tn] (iter (btree-right bnode) tn back))))))
 
   (let ([linked-list (make-linked-list '())])
-    (iter root linked-list (const '()))
+    (iter root linked-list (λ _ _))
     linked-list))
 
 (define test-tree (btree-parse '(1 2 5 3 4 6)))
