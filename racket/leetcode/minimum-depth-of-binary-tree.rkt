@@ -10,9 +10,9 @@
 
 (define [min-depth root]
   (cond ([null? root] 0)
-        ([btree-branches-non-empty? root]
-         (add1 (min (min-depth (btree-left root))
-                    (min-depth (btree-right root)))))
+        ([bnode-branches-non-empty? root]
+         (add1 (min (min-depth (bnode-left root))
+                    (min-depth (bnode-right root)))))
         (else 1)))
 
 (define test-tree (btree-parse '(a b e c d f - - - - - g - h)))

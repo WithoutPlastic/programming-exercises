@@ -7,22 +7,22 @@
 (require "lib/binary-tree.rkt")
 
 (define [sorted-list->bst lst]
-  (let ([len (length lst)])
-    (define [split]
-      (let* ([mid-idx (floor (/ len 2))] [mid-elt (list-ref lst mid-idx)]
-             [left-slice (take lst mid-idx)]
-             [right-slice (drop lst (add1 mid-idx))]
-             [new-node (make-btree-alone-node mid-elt)])
-        (btree-set-left! new-node (sorted-list->bst left-slice))
-        (btree-set-right! new-node (sorted-list->bst right-slice))
-        new-node))
+  (define [split mid-idx]
+    (let* ([mid-elt (list-ref lst mid-idx)]
+           [left-slice (take lst mid-idx)]
+           [right-slice (drop lst (add1 mid-idx))]
+           [new-bnode (make-btree-alone-node mid-elt)])
+      (bnode-set-left! new-bnode (sorted-list->bst left-slice))
+      (bnode-set-right! new-bnode (sorted-list->bst right-slice))
+      new-bnode))
 
+  (let ([len (length lst)])
     (cond ([= len 1] (make-btree-alone-node (car lst)))
-          ([< 2 len] (split))
-          (else (let ([p-node (make-btree-alone-node (cadr lst))]
-                      [l-node (make-btree-alone-node (car lst))])
-                  (btree-set-left! p-node l-node) p-node)))))
+          ([< 2 len] (split (floor (/ len 2))))
+          (else (let ([p-bnode (make-btree-alone-node (cadr lst))]
+                      [l-bnode (make-btree-alone-node (car lst))])
+                  (bnode-set-left! p-bnode l-bnode) p-bnode)))))
 
 (define test-list (range 0 24))
 
-(sorted-list->bst test-list)
+(btree-serialize (sorted-list->bst test-list))

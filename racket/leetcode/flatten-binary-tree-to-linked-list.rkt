@@ -37,10 +37,10 @@
 (define [tree-flatten root]
   (define [iter bnode tail-lnode back]
     (if [null? bnode] (back tail-lnode)
-      (let ([new-lnode (make-lnode (btree-payload bnode) '())])
+      (let ([new-lnode (make-lnode (bnode-payload bnode) '())])
         (lnode-set-next! tail-lnode new-lnode)
-        (iter (btree-left bnode) new-lnode
-              (λ [tn] (iter (btree-right bnode) tn back))))))
+        (iter (bnode-left bnode) new-lnode
+              (λ [tn] (iter (bnode-right bnode) tn back))))))
 
   (let ([linked-list (make-linked-list '())])
     (iter root linked-list (λ _ _))

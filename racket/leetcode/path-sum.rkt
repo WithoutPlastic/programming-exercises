@@ -21,13 +21,13 @@
 
 (define [has-path-sum? root sum]
   (define [find-paths node]
-    (let* ([left-br (btree-left node)] [right-br (btree-right node)]
-           [payload (btree-payload node)] [ext-payload (curry cons payload)])
-      (cond ([btree-branches-non-empty? node]
+    (let* ([left-br (bnode-left node)] [right-br (bnode-right node)]
+           [payload (bnode-payload node)] [ext-payload (curry cons payload)])
+      (cond ([bnode-branches-non-empty? node]
              (append (map ext-payload (find-paths left-br))
                      (map ext-payload (find-paths right-br))))
-            ([btree-last? node] (list (list payload)))
-            ([btree-left-empty? node] (map ext-payload (find-paths right-br)))
+            ([bnode-last? node] (list (list payload)))
+            ([bnode-left-empty? node] (map ext-payload (find-paths right-br)))
             (else (map ext-payload (find-paths left-br))))))
 
   (if [null? root]

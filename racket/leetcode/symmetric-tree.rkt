@@ -50,11 +50,11 @@
     (cond ([and [null? l-node] [null? r-node]] true)
           ([or [null? l-node] [null? r-node]] false)
           (else
-            [and [equal? (btree-payload l-node) (btree-payload r-node)]
-                 [symmetric-equal? (btree-left l-node) (btree-right r-node)]
-                 [symmetric-equal? (btree-right l-node) (btree-left r-node)]])))
+            [and [equal? (bnode-payload l-node) (bnode-payload r-node)]
+                 [symmetric-equal? (bnode-left l-node) (bnode-right r-node)]
+                 [symmetric-equal? (bnode-right l-node) (bnode-left r-node)]])))
 
-  [symmetric-equal? (btree-left root) (btree-right root)])
+  [symmetric-equal? (bnode-left root) (bnode-right root)])
 
 (define test-tree-a (btree-parse '(1 2 2 3 4 4 3)))
 (define test-tree-b (btree-parse '(1 2 2 - 3 - 3)))

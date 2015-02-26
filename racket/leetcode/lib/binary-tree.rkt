@@ -7,59 +7,57 @@
 (define make-btree-alone-node (curryr make-btree-node '() '()))
 (define [make-btree-empty-node] (make-btree-alone-node '()))
 
-(define btree-payload mcar)
-(define btree-branches mcdr)
-(define btree-left (compose mcar btree-branches))
-(define btree-right (compose mcdr btree-branches))
+(define bnode-payload mcar)
+(define bnode-branches mcdr)
+(define bnode-left (compose mcar bnode-branches))
+(define bnode-right (compose mcdr bnode-branches))
+(define [bnode->branches bnode] (list (bnode-left bnode) (bnode-right bnode)))
 
-(define [btree->branches x] (list (btree-left x) (btree-right x)))
+(define bnode-payload-empty? (compose null? bnode-payload))
+(define bnode-left-empty? (compose null? bnode-left))
+(define bnode-right-empty? (compose null? bnode-right))
+(define [bnode-branches-non-empty? bnode]
+  [nor [bnode-left-empty? bnode] [bnode-right-empty? bnode]])
+(define [bnode-branches-empty? bnode]
+  [and [bnode-left-empty? bnode] [bnode-right-empty? bnode]])
+(define bnode-last? bnode-branches-empty?)
 
-(define btree-payload-empty? (compose null? btree-payload))
-(define btree-left-empty? (compose null? btree-left))
-(define btree-right-empty? (compose null? btree-right))
-(define [btree-branches-non-empty? x]
-  [nor [btree-left-empty? x] [btree-right-empty? x]])
-(define [btree-last? x]
-  [and [btree-left-empty? x] [btree-right-empty? x]])
-
-(define btree-set-payload! set-mcar!)
-(define [btree-set-left! node v] (set-mcar! (btree-branches node) v))
-(define [btree-set-right! node v] (set-mcdr! (btree-branches node) v))
-(define [btree-set-branches! node lv rv]
-  (btree-set-left! node lv) (btree-set-right! node rv))
+(define bnode-set-payload! set-mcar!)
+(define [bnode-set-left! bnode x] (set-mcar! (bnode-branches bnode) x))
+(define [bnode-set-right! bnode x] (set-mcdr! (bnode-branches bnode) x))
+(define [bnode-set-branches! bnode lv rv]
+  (bnode-set-left! bnode lv) (bnode-set-right! bnode rv))
 
 (define [btree-height root]
-  (let ([left (btree-left root)] [right (btree-right root)])
-    (add1 (cond ([btree-last? root] 0)
-                ([btree-branches-non-empty? root]
+  (let ([left (bnode-left root)] [right (bnode-right root)])
+    (add1 (cond ([bnode-branches-empty? root] 0)
+                ([bnode-branches-non-empty? root]
                  (max (btree-height left) (btree-height right)))
-                ([btree-left-empty? root] (btree-height right))
+                ([bnode-left-empty? root] (btree-height right))
                 (else (btree-height left))))))
 
 (define padding-sym '-)
 (define padding-sym? (curry eq? padding-sym))
 
 (define [btree-serialize root]
-  (define [null->padding-node x]
-    (if [null? x] (make-btree-alone-node padding-sym) x))
-  (define [->result x] (if [null? x] padding-sym (btree-payload x)))
+  (define [null->padding-node bnode]
+    (if [null? bnode] (make-btree-alone-node padding-sym) bnode))
+  (define [->result bnode] (if [null? bnode] padding-sym (bnode-payload bnode)))
 
   (define [iter-level pending-nodes]
-    (let* ([exted-pendings (append-map btree->branches pending-nodes)]
+    (let* ([exted-pendings (append-map bnode->branches pending-nodes)]
            [results (map ->result exted-pendings)]
            [next-pendings (filter-not null? exted-pendings)])
-      (if [null? next-pendings]
-        '()
+      (if [null? next-pendings] '()
         (append results (iter-level next-pendings)))))
 
-  (cons (btree-payload root)
+  (cons (bnode-payload root)
         (dropf-right (iter-level (list root)) padding-sym?)))
 
 (define [btree-parse lst]
   (define padded-lst (append lst (list padding-sym)))
   (define lst-len (length padded-lst))
-  (define [padding-elt? idx]
-    [eq? (list-ref padded-lst idx) padding-sym])
+  (define [padding-elt? idx] [eq? (list-ref padded-lst idx) padding-sym])
 
   (define [gen-idx-pairs base cnt]
     (map (λ [s] (map (curry + 1 base) (list (* s 2) (add1 (* s 2)))))
@@ -79,19 +77,18 @@
         (let* ([exted-node-pairs (map make-pair-nodes exted-idx-pairs)]
                [flattened-nodes (flatten exted-node-pairs)]
                [next-nodes (filter-not null? flattened-nodes)])
-          (for-each (λ [n p] (btree-set-branches! n (car p) (cadr p)))
+          (for-each (λ [n p] (bnode-set-branches! n (car p) (cadr p)))
                     nodes exted-node-pairs)
           (iter next-nodes next-base-idx)))))
 
   (let ([root (make-btree-alone-node (car padded-lst))])
-    (iter (list root) 0)
-    root))
+    (iter (list root) 0) root))
 
 (define [btree-equal? root-a root-b]
   (define [continue]
-    (let ([a-left-br (btree-left root-a)] [a-right-br (btree-right root-a)]
-          [b-left-br (btree-left root-b)] [b-right-br (btree-right root-b)]
-          [payload-a (btree-payload root-a)] [payload-b (btree-payload root-b)])
+    (let ([a-left-br (bnode-left root-a)] [a-right-br (bnode-right root-a)]
+          [b-left-br (bnode-left root-b)] [b-right-br (bnode-right root-b)]
+          [payload-a (bnode-payload root-a)] [payload-b (bnode-payload root-b)])
       [and [equal? payload-a payload-b]
            [btree-equal? a-left-br b-left-br]
            [btree-equal? a-right-br b-right-br]]))
@@ -101,13 +98,11 @@
         (else (continue))))
 
 (define [btree-swap-branches! root]
-  (define [swap]
-    (let ([old-left-br (btree-left root)]
-          [old-right-br (btree-right root)])
-      (btree-set-left! root old-right-br)
-      (btree-set-right! root old-left-br)
-      root))
-
-  (when [btree-node? root] (swap)))
+  (when [btree-node? root]
+    (let ([old-left-br (bnode-left root)]
+          [old-right-br (bnode-right root)])
+      (bnode-set-left! root old-right-br)
+      (bnode-set-right! root old-left-br)
+      root)))
 
 (provide (all-defined-out))

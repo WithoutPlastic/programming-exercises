@@ -7,13 +7,12 @@
 (require "lib/linked-node.rkt")
 (require "lib/binary-tree.rkt")
 
-(define double-lnode-next (compose lnode-next lnode-next))
-
-(define [one-lnode-left? node]
-  [and [not [lnode-last? node]] [lnode-last? (lnode-next node)]])
-
 (define [sorted-linked-list->bst linked-nodes]
+  (define double-lnode-next (compose lnode-next lnode-next))
   (define [walk backward-lnode forward-lnode]
+    (define [one-lnode-left? node]
+      [and [not [lnode-last? node]] [lnode-last? (lnode-next node)]])
+
     (if [or [lnode-last? forward-lnode] [one-lnode-left? forward-lnode]]
       (split backward-lnode)
       (walk (lnode-next backward-lnode) (double-lnode-next forward-lnode))))
@@ -24,8 +23,8 @@
            [mid-payload (lnode-payload mid-lnode)]
            [new-bnode (make-btree-alone-node mid-payload)])
       (lnode-set-next! pre-mid-lnode '())
-      (btree-set-left! new-bnode (sorted-linked-list->bst linked-nodes))
-      (btree-set-right! new-bnode (sorted-linked-list->bst post-mid-lnode))
+      (bnode-set-left! new-bnode (sorted-linked-list->bst linked-nodes))
+      (bnode-set-right! new-bnode (sorted-linked-list->bst post-mid-lnode))
       new-bnode))
 
   (let* ([first-lnode linked-nodes]
@@ -36,7 +35,7 @@
           (else
             (let* ([second-payload (lnode-payload second-lnode)]
                    [p-bnode (make-btree-alone-node second-payload)])
-              (btree-set-left! p-bnode (make-btree-alone-node first-payload))
+              (bnode-set-left! p-bnode (make-btree-alone-node first-payload))
               p-bnode)))))
 
 (define test-linked-nodes (apply new-linked-nodes (range 0 24)))

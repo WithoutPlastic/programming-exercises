@@ -44,13 +44,13 @@
 (require "lib/binary-tree.rkt")
 
 (define [level-order-traversal root]
-  (define [iter-level nodes]
-    (let* ([cur-level-elts (map btree-payload nodes)]
-           [all-next-level-elts (append-map btree->branches nodes)]
-           [valid-next-level-nodes (filter-not null? all-next-level-elts)])
-      (if [null? valid-next-level-nodes]
+  (define [iter-level bnodes]
+    (let* ([cur-level-elts (map bnode-payload bnodes)]
+           [next-level-bnodes (append-map bnode->branches bnodes)]
+           [valid-next-level-bnodes (filter-not null? next-level-bnodes)])
+      (if [null? valid-next-level-bnodes]
         (list cur-level-elts)
-        (cons cur-level-elts (iter-level valid-next-level-nodes)))))
+        (cons cur-level-elts (iter-level valid-next-level-bnodes)))))
 
   (iter-level (list root)))
 

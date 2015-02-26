@@ -9,13 +9,14 @@
 (require "lib/binary-tree.rkt")
 
 (define [balanced? root]
-  (let ([left (btree-left root)] [right (btree-right root)])
-    (cond ([btree-last? root] true)
-          ([btree-branches-non-empty? root]
-           [and [<= (- (btree-height left) (btree-height right)) 1]
-                [balanced? left] [balanced? right]])
-          ([btree-left-empty? root] [<= (btree-height right) 1])
-          (else [<= (btree-height left) 1]))))
+  (let ([left-br (bnode-left root)] [right-br (bnode-right root)])
+    (cond ([bnode-last? root] true)
+          ([bnode-branches-non-empty? root]
+           [and [<= (- (btree-height left-br) (btree-height right-br)) 1]
+                [balanced? left-br] [balanced? right-br]])
+          ([bnode-left-empty? root] [<= (btree-height right-br) 1])
+          (else [<= (btree-height left-br) 1]))))
 
 (define test-tree (btree-parse '(a b e c d f - - - - - g)))
+
 (balanced? test-tree)

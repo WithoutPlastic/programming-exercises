@@ -34,20 +34,20 @@
   (define [scan node verdict?]
     (if [null? node]
       false
-      [or [and [verdict? (btree-payload node)] node]
-          (scan (btree-left node) verdict?)
-          (scan (btree-right node) verdict?)]))
+      [or [and [verdict? (bnode-payload node)] node]
+          (scan (bnode-left node) verdict?)
+          (scan (bnode-right node) verdict?)]))
 
   (define [swap node-a node-b]
-    (let ([old-v-a (btree-payload node-a)]
-          [old-v-b (btree-payload node-b)])
-      (btree-set-payload! node-a old-v-b)
-      (btree-set-payload! node-b old-v-a)
+    (let ([old-v-a (bnode-payload node-a)]
+          [old-v-b (bnode-payload node-b)])
+      (bnode-set-payload! node-a old-v-b)
+      (bnode-set-payload! node-b old-v-a)
       (cons old-v-a old-v-b)))
 
   (define [continue]
-    (let* ([payload (btree-payload root)]
-           [left-br (btree-left root)] [right-br (btree-right root)]
+    (let* ([payload (bnode-payload root)]
+           [left-br (bnode-left root)] [right-br (bnode-right root)]
            [scan-left-result (scan left-br (curry < payload))]
            [scan-right-result (scan right-br (curryr < payload))])
       (cond ([and scan-left-result [not scan-right-result]]
