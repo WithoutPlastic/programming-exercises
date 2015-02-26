@@ -1,6 +1,7 @@
 #lang racket
 
 ;Utils
+(define [btree-node? obj] [and [mpair? obj] [mpair? (mcdr mpair?)]])
 (define [make-btree-node payload left-node right-node]
   (mcons payload (mcons left-node right-node)))
 (define make-btree-alone-node (curryr make-btree-node '() '()))
@@ -21,6 +22,7 @@
 (define [btree-last? x]
   [and [btree-left-empty? x] [btree-right-empty? x]])
 
+(define btree-set-payload! set-mcar!)
 (define [btree-set-left! node v] (set-mcar! (btree-branches node) v))
 (define [btree-set-right! node v] (set-mcdr! (btree-branches node) v))
 (define [btree-set-branches! node lv rv]
