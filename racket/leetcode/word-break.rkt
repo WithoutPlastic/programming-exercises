@@ -14,11 +14,10 @@
   (let ([len-s (length chars-s)] [len-p (length chars-p)])
     (define [iter idx]
       (match (list [< idx len-s] [< idx len-p])
-        ([list _ #f] idx)
-        ([list #f #t] false)
-        ([list #t #t]
-         [and [eq? (list-ref chars-s idx) (list-ref chars-p idx)]
-              (iter (add1 idx))])))
+        [(list _ #f) idx]
+        [(list #f #t) false]
+        [(list #t #t) [and [eq? (list-ref chars-s idx) (list-ref chars-p idx)]
+                           (iter (add1 idx))]]))
 
     (iter 0)))
 (provide prefix?)

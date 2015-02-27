@@ -29,10 +29,10 @@
   (unless [null? root]
     (let ([n (bnode-payload root)])
       (match (list (bnode-left root) (bnode-right root))
-        ([list '() '()] n)
-        ([list '() r] (max-path-sum r))
-        ([list l '()] (max-path-sum l))
-        ([list l r] (split n l r))))))
+        [(list '() '()) n]
+        [(list '() r) (max-path-sum r)]
+        [(list l '()) (max-path-sum l)]
+        [(list l r) (split n l r)]))))
 
 (define test-tree-a (btree-parse '(1 2 3)))
 (define test-tree-b (btree-parse '(1 1 2 1 6 10 11)))

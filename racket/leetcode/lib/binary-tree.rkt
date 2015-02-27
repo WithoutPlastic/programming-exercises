@@ -129,9 +129,9 @@
          [get-left-paths (λ _ (map extend (btree-paths left-bnode)))]
          [get-right-paths (λ _ (map extend (btree-paths right-bnode)))])
     (match (list left-bnode right-bnode)
-      ([list '() '()] (list (list root)))
-      ([list '() _] (get-right-paths))
-      ([list _ '()] (get-left-paths))
-      (else (append (get-left-paths) (get-right-paths))))))
+      [(list '() '()) (list (list root))]
+      [(list '() _) (get-right-paths)]
+      [(list _ '()) (get-left-paths)]
+      [_ (append (get-left-paths) (get-right-paths))])))
 
 (provide (all-defined-out))
