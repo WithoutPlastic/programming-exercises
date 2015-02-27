@@ -36,14 +36,7 @@
 ;     / \  / \
 ;    4->5->6->7 -> NULL
 
-;Tri tree utils
-(define [make-tnode payload next left right]
-  (mcons payload (mcons next (mcons left right))))
-(define tnode-payload mcar)
-(define tnode-next (compose mcar mcdr))
-(define tnode-left (compose mcar mcdr mcdr))
-(define tnode-right (compose mcdr mcdr mcdr))
-(define [tnode-set-next! tnode x] (set-mcar! (mcdr tnode) x))
+(require "lib/triple-tree.rkt")
 
 (define [connect! root]
   (define [tri-tree-side-nodes root left-or-right]
