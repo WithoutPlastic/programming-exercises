@@ -21,6 +21,7 @@
               (iter (add1 idx))])))
 
     (iter 0)))
+(provide prefix?)
 
 (define [word-break str dictionary]
   (let ([chars-dict (map string->list dictionary)])
@@ -31,9 +32,9 @@
 
     (iter (string->list str))))
 
-(define test-str-a "leetcodelcodeleetcode")
-(define test-str-b "leetcodelcodeleetcodeleetl")
-(define test-dict (list "leet" "code" "codel"))
-
-(word-break test-str-a test-dict)
-(word-break test-str-b test-dict)
+;(define test-str-a "leetcodelcodeleetcode")
+;(define test-str-b "leetcodelcodeleetcodeleetl")
+;(define test-dict (list "leet" "code" "codel"))
+;
+;(word-break test-str-a test-dict)
+;(word-break test-str-b test-dict)
