@@ -36,6 +36,23 @@
                 ([bnode-left-empty? root] (btree-height right))
                 (else (btree-height left))))))
 
+(define [list->btree lst]
+  (define [split mid-idx]
+    (let* ([mid-elt (list-ref lst mid-idx)]
+           [left-slice (take lst mid-idx)]
+           [right-slice (drop lst (add1 mid-idx))]
+           [new-bnode (make-btree-alone-node mid-elt)])
+      (bnode-set-left! new-bnode (list->btree left-slice))
+      (bnode-set-right! new-bnode (list->btree right-slice))
+      new-bnode))
+
+  (let ([len (length lst)])
+    (cond ([= len 1] (make-btree-alone-node (car lst)))
+          ([< 2 len] (split (floor (/ len 2))))
+          (else (let ([p-bnode (make-btree-alone-node (cadr lst))]
+                      [l-bnode (make-btree-alone-node (car lst))])
+                  (bnode-set-left! p-bnode l-bnode) p-bnode)))))
+
 (define padding-sym '-)
 (define padding-sym? (curry eq? padding-sym))
 
