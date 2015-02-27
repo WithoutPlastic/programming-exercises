@@ -20,19 +20,9 @@
 (require "lib/binary-tree.rkt")
 
 (define [has-path-sum? root sum]
-  (define [find-paths node]
-    (let* ([left-br (bnode-left node)] [right-br (bnode-right node)]
-           [payload (bnode-payload node)] [ext-payload (curry cons payload)])
-      (cond ([bnode-branches-non-empty? node]
-             (append (map ext-payload (find-paths left-br))
-                     (map ext-payload (find-paths right-br))))
-            ([bnode-last? node] (list (list payload)))
-            ([bnode-left-empty? node] (map ext-payload (find-paths right-br)))
-            (else (map ext-payload (find-paths left-br))))))
-
-  (if [null? root]
-    false
-    [list? (memq sum (map (curry apply +) (find-paths root)))]))
+  (if [null? root] false
+    (let ([paths (map (λ [p] (map bnode-payload p)) (btree-paths root))])
+      [list? (memq sum (map (curry apply +) paths))])))
 
 (define test-tree (btree-parse '(5 4 8 11 - 13 4 7 2 - - - 1)))
 

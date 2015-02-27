@@ -122,4 +122,16 @@
       (bnode-set-right! root old-left-br)
       root)))
 
+(define [btree-paths root]
+  (let* ([left-bnode (bnode-left root)]
+         [right-bnode (bnode-right root)]
+         [extend (curry cons root)]
+         [get-left-paths (λ _ (map extend (btree-paths left-bnode)))]
+         [get-right-paths (λ _ (map extend (btree-paths right-bnode)))])
+    (match (list left-bnode right-bnode)
+      ([list '() '()] (list (list root)))
+      ([list '() _] (get-right-paths))
+      ([list _ '()] (get-left-paths))
+      (else (append (get-left-paths) (get-right-paths))))))
+
 (provide (all-defined-out))
