@@ -11,7 +11,7 @@
 
 (define [get-width int]
   (define [iter e]
-    (if [< 1 (floor (/ int (expt 10 (sub1 e))))] (iter (add1 e)) e))
+    (if [= 0 (floor (/ int (expt 10 e)))] e (iter (add1 e))))
   (iter 1))
 
 (define [number->chars int]
