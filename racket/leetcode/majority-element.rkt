@@ -11,14 +11,16 @@
 ;Special thanks to @ts for adding this problem and creating all test cases.
 
 (define [majority-element lst]
-  (let* ([unique-elts (remove-duplicates lst)]
-         [count-lst-elt (λ [e] (cons e (count (curry equal? e) lst)))]
-         [major-result (argmax cdr (map count-lst-elt unique-elts))]
-         [major-elt (car major-result)]
-         [major-repeat (cdr major-result)])
-    (if [<= major-repeat (floor (/ (length lst) 2))] '() major-elt)))
+  (define [iter remaining candidate cnt]
+    (if [null? remaining] candidate
+      (let ([first-elt (car remaining)] [rest-elts (cdr remaining)])
+        (cond ([= cnt 0] (iter rest-elts first-elt (add1 cnt)))
+              ([eq? first-elt candidate] (iter rest-elts candidate (add1 cnt)))
+              (else (iter rest-elts candidate (sub1 cnt)))))))
+
+  (iter lst '() 0))
 
 (define test-lst
-  (shuffle (append (build-list 52 (thunk* (random 20))) (make-list 48 7))))
+  (shuffle (append (build-list 50 (thunk* (random 20))) (make-list 50 7))))
 
 (majority-element test-lst)
