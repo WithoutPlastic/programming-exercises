@@ -17,6 +17,14 @@
           (else (walk (lnode-next lnode)))))
 
   (walk head))
+(define [linked-nodes-append! from-lnode to-lnode]
+  (define [seek-last n] (if [lnode-last? n] n (seek-last (lnode-next n))))
+  (lnode-set-next! (seek-last from-lnode) to-lnode))
+(define [linked-nodes-length head]
+  (define [iter lnode cnt]
+    (if [null? lnode] cnt (iter (lnode-next lnode) (add1 cnt))))
+
+  (iter head 0))
 
 (define make-linked-list (curry mcons 'linked-list))
 (define linked-list-head lnode-payload)
@@ -35,5 +43,8 @@
     [(previous) (previous-walk linked-list)]
     [(default) (linked-node-seek (linked-list-body linked-list) v)]
     [else (error "position keyword incorrect -- LINKED-LIST-SEEK" pos)]))
+(define [linked-list-append! from-linked-list to-linked-list]
+  (linked-nodes-append! from-linked-list (linked-list-body to-linked-list)))
+(define linked-list-length (compose sub1 linked-nodes-length))
 
 (provide (all-defined-out))
