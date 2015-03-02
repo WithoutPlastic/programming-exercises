@@ -13,17 +13,17 @@
   (super-new)
   (define stack '())
   (define min-val +inf.0)
-  (define/public (push! elt)
+  (define/public [push! elt]
     (set! stack (cons elt stack))
     (when [< elt min-val] (set! min-val elt)))
-  (define/public (pop!)
+  (define/public [pop!]
     (if [null? stack] '()
       (let ([elt (car stack)])
         (set! stack (cdr stack))
         (when [= elt min-val] (set! min-val (apply min stack)))
         elt)))
-  (define/public (top) (car stack))
-  (define/public (get-min) min-val))))
+  (define/public [top] (car stack))
+  (define/public [get-min] min-val))))
 
 (send stack pop!)
 (send stack push! 1)
