@@ -80,23 +80,23 @@
     (map (λ [s] (map (curry + 1 base) (list (* s 2) (add1 (* s 2)))))
          (range 0 cnt)))
 
+  (define [ref l idx] (if [< idx (length l)] (list-ref l idx) padding-sym))
   (define [make-pair-nodes p]
-    (let ([l-elt (list-ref padded-lst (car p))]
-          [r-elt (list-ref padded-lst (cadr p))])
+    (let ([l-elt (ref padded-lst (car p))]
+          [r-elt (ref padded-lst (cadr p))])
       (list (if [padding-sym? l-elt] '() (make-btree-alone-node l-elt))
             (if [padding-sym? r-elt] '() (make-btree-alone-node r-elt)))))
 
   (define [iter nodes base-idx]
     (let* ([node-cnt (length nodes)]
            [exted-idx-pairs (gen-idx-pairs base-idx node-cnt)]
-           [next-base-idx (cadr (last exted-idx-pairs))])
-      (when [< next-base-idx lst-len]
-        (let* ([exted-node-pairs (map make-pair-nodes exted-idx-pairs)]
-               [flattened-nodes (flatten exted-node-pairs)]
-               [next-nodes (filter-not null? flattened-nodes)])
-          (for-each (λ [n p] (bnode-set-branches! n (car p) (cadr p)))
-                    nodes exted-node-pairs)
-          (iter next-nodes next-base-idx)))))
+           [next-base-idx (cadr (last exted-idx-pairs))]
+           [exted-node-pairs (map make-pair-nodes exted-idx-pairs)]
+           [flattened-nodes (flatten exted-node-pairs)]
+           [next-nodes (filter-not null? flattened-nodes)])
+      (for-each (λ [n p] (bnode-set-branches! n (car p) (cadr p)))
+                nodes exted-node-pairs)
+      (when [< next-base-idx lst-len] (iter next-nodes next-base-idx))))
 
   (let ([root (make-btree-alone-node (car padded-lst))])
     (iter (list root) 0) root))
