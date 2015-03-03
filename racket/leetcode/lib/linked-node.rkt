@@ -1,6 +1,9 @@
 #lang racket
 
 ;Utils
+(define [repeat f n] (apply compose (make-list n f)))
+
+;Exports
 (define make-lnode mcons)
 (define lnode-payload mcar)
 (define lnode-next mcdr)
@@ -33,6 +36,7 @@
       (lnode-set-next! first-lnode '()))))
 (define [linked-nodes-last head]
   (if [lnode-last? head] head (linked-nodes-last (lnode-next head))))
+(define [linked-nodes-ref head idx] ((repeat lnode-next idx) head))
 
 (define make-linked-list (curry mcons 'linked-list))
 (define linked-list-head lnode-payload)
@@ -55,6 +59,8 @@
   (linked-nodes-append! from-linked-list (linked-list-body to-linked-list)))
 (define linked-list-length (compose sub1 linked-nodes-length))
 (define linked-list-last linked-nodes-last)
+(define [linked-list-ref linked-list idx]
+  (linked-nodes-ref (linked-list-body linked-list) idx))
 (define [linked-list-reverse! linked-list]
   (let ([last-lnode (linked-list-last linked-list)])
     (linked-nodes-reverse! (linked-list-body linked-list))
