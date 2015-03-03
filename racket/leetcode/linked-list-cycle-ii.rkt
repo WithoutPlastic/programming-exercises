@@ -10,7 +10,6 @@
 (require "lib/linked-node.rkt")
 
 (define [seek-linked-list-cycle linked-list]
-  (define [repeat f n] (foldl compose identity (make-list n f)))
   (define double-next (compose lnode-next lnode-next))
   (define [find b f] (if [eq? b f] b (find (lnode-next b) (lnode-next f))))
   (define [get-cyclen-len b n c]

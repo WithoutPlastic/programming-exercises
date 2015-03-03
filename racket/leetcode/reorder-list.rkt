@@ -12,10 +12,8 @@
 (require "lib/linked-node.rkt")
 
 (define [reorder-linked-list head]
-  (define [repeat f n] (apply compose (make-list n f)))
-
   (let* ([len (linked-nodes-length head)]
-         [pre-mid-lnode ((repeat lnode-next (floor (/ (sub1 len) 2))) head)]
+         [pre-mid-lnode (linked-nodes-ref head (floor (/ (sub1 len) 2)))]
          [mid-lnode (lnode-next pre-mid-lnode)]
          [last-lnode (linked-nodes-last head)])
     (define [iter head tail]

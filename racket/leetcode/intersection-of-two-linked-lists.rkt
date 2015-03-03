@@ -27,7 +27,6 @@
 (require "lib/linked-node.rkt")
 
 (define [get-intersection-node ll-a ll-b]
-  (define [repeat f n] (foldl compose identity (make-list n f)))
   (define [iter a b] (if [eq? a b] a (iter (lnode-next a) (lnode-next b))))
 
   (let ([len-a (linked-list-length ll-a)] [len-b (linked-list-length ll-b)])
