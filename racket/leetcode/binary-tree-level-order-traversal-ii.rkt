@@ -48,10 +48,8 @@
     (let* ([cur-level-elts (map bnode-payload bnodes)]
            [next-level-bnodes (append-map bnode->branches bnodes)]
            [valid-next-level-bnodes (filter-not null? next-level-bnodes)])
-      (if [null? valid-next-level-bnodes]
-        (list cur-level-elts)
-        (append (iter-level valid-next-level-bnodes)
-                (list cur-level-elts)))))
+      (if [null? valid-next-level-bnodes] (list cur-level-elts)
+        (append (iter-level valid-next-level-bnodes) (list cur-level-elts)))))
 
   (iter-level (list root)))
 

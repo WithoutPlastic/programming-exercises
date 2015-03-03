@@ -27,6 +27,6 @@
 
   (iter root '() identity))
 
-(define test-tree (btree-parse '(1 - 2 3)))
+(define test-tree (btree-parse '(f b g a d - i - - c e h)))
 
 (postorder-traversal test-tree)
