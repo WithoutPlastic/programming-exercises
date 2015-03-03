@@ -8,16 +8,6 @@
 ;[1,1,2] have the following unique permutations:
 ;[1,1,2], [1,2,1], and [2,1,1].
 
-(define [permute-unique elts]
-  (cond ([null? elts] '())
-        ([= 1 (length elts)] (list elts))
-        (else
-          (append-map
-            (λ [elt] (map (curry cons elt) (permute-unique (remove elt elts))))
-            (remove-duplicates elts)))))
+(require "lib/permutation.rkt")
 
-(provide permute-unique)
-
-(define test-ints '(1 1 2))
-
-;(permute-unique test-ints)
+(unique-permute '(1 1 2))

@@ -7,17 +7,10 @@
 ;[1,2,3] have the following permutations:
 ;[1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], and [3,2,1].
 
-(define [all-permutations elts]
-  (cond ([null? elts] '())
-        ([= 1 (length elts)] (list elts))
-        (else
-          (append-map
-            (λ [elt] (map (curry cons elt)
-                          (all-permutations (filter-not (curry eq? elt) elts))))
-            elts))))
+(require "lib/permutation.rkt")
 
-(define test-ints-a '(1 2 3))
-(define test-ints-b '(1 2 3 4))
+(define all-permute permute)
 
-(all-permutations test-ints-a)
-(all-permutations test-ints-b)
+(all-permute '(1 2 3))
+(all-permute '(1 1 3))
+(all-permute '(1 2 3 4))

@@ -17,12 +17,13 @@
 ;
 ;Note: Given n will be between 1 and 9 inclusive.
 
-(require "permutations-ii.rkt")
-(define [factorial n] (if [< 1 n] (* n (factorial (sub1 n))) 1))
+(require "lib/permutation.rkt")
 
 (define [get-permutation n k]
-  (let ([permutations (permute-unique (range 1 (add1 n)))]
-        [permutations-len (factorial n)])
+  (define [factorial n] (if [< 1 n] (* n (factorial (sub1 n))) 1))
+
+  (let ([permutations-len (factorial n)]
+        [permutations (unique-permute (range 1 (add1 n)))])
     (if [<= k permutations-len]
       (list-ref permutations (sub1 k))
       (list-ref permutations (sub1 permutations-len)))))

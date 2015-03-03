@@ -14,11 +14,7 @@
 ;S = "rabbbit", T = "rabbit"
 ;Return 3.
 
-(define [drop-n-elts lst n]
-  (cond ([null? lst] '())
-        ([= n 0] (list lst))
-        (else (append (drop-n-elts (cdr lst) (sub1 n))
-                      (map (curry cons (car lst)) (drop-n-elts (cdr lst) n))))))
+(require "lib/permutation.rkt")
 
 (define [distincts str-s str-t]
   (let ([len-s (string-length str-s)] [len-t (string-length str-t)])
