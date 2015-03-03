@@ -9,14 +9,12 @@
 ;[1,1,2], [1,2,1], and [2,1,1].
 
 (define [permute-unique elts]
-  (let ([uniques (remove-duplicates elts)])
-    (cond ([null? elts] '())
-          ([= 1 (length elts)] (list elts))
-          (else
-            (append-map
-              (lambda [elt]
-                (map (curry cons elt) (permute-unique (remove elt elts))))
-              uniques)))))
+  (cond ([null? elts] '())
+        ([= 1 (length elts)] (list elts))
+        (else
+          (append-map
+            (λ [elt] (map (curry cons elt) (permute-unique (remove elt elts))))
+            (remove-duplicates elts)))))
 
 (provide permute-unique)
 

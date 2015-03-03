@@ -12,9 +12,8 @@
         ([= 1 (length elts)] (list elts))
         (else
           (append-map
-            (lambda [elt]
-              (map (curry cons elt)
-                   (all-permutations (filter-not (curry eq? elt) elts))))
+            (λ [elt] (map (curry cons elt)
+                          (all-permutations (filter-not (curry eq? elt) elts))))
             elts))))
 
 (define test-ints-a '(1 2 3))
