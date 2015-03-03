@@ -25,6 +25,14 @@
     (if [null? lnode] cnt (iter (lnode-next lnode) (add1 cnt))))
 
   (iter head 0))
+(define [linked-nodes-reverse! head]
+  (unless [or [null? head] [lnode-last? head]]
+    (let ([first-lnode head] [second-lnode (lnode-next head)])
+      (linked-nodes-reverse! second-lnode)
+      (lnode-set-next! second-lnode first-lnode)
+      (lnode-set-next! first-lnode '()))))
+(define [linked-nodes-last head]
+  (if [lnode-last? head] head (linked-nodes-last (lnode-next head))))
 
 (define make-linked-list (curry mcons 'linked-list))
 (define linked-list-head lnode-payload)
@@ -46,5 +54,10 @@
 (define [linked-list-append! from-linked-list to-linked-list]
   (linked-nodes-append! from-linked-list (linked-list-body to-linked-list)))
 (define linked-list-length (compose sub1 linked-nodes-length))
+(define linked-list-last linked-nodes-last)
+(define [linked-list-reverse! linked-list]
+  (let ([last-lnode (linked-list-last linked-list)])
+    (linked-nodes-reverse! (linked-list-body linked-list))
+    (lnode-set-next! linked-list last-lnode)))
 
 (provide (all-defined-out))
