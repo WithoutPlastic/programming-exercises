@@ -10,9 +10,9 @@
 (define lnode-set-payload! set-mcar!)
 (define lnode-set-next! set-mcdr!)
 (define lnode-last? (compose null? lnode-next))
-(define [new-linked-nodes . args]
+(define [new-linked-nodes lst]
   (foldr (λ [n pn] (lnode-set-next! n pn) n) '()
-         (map (curryr make-lnode '()) args)))
+         (map (curryr make-lnode '()) lst)))
 (define [linked-node-seek head v]
   (define [walk lnode]
     (cond ([null? lnode] '())

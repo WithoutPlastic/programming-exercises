@@ -33,7 +33,7 @@
 
     (iter lnodes s-linked-list l-linked-list)))
 
-(define test-linked-nodes (new-linked-nodes 1 4 3 2 5 2))
+(define test-linked-nodes (new-linked-nodes '(1 4 3 2 5 2)))
 (define test-target 3)
 
 (my-partition test-linked-nodes test-target)

@@ -34,14 +34,14 @@
       (iter ll-a ((repeat lnode-next (- len-b len-a)) ll-b))
       (iter ll-b ((repeat lnode-next (- len-a len-b)) ll-a)))))
 
-(define shared-linked-list (new-linked-list 'a 'b 'c 'd))
+(define shared-linked-list (new-linked-list '(a b c d)))
 (define test-linked-list-a
-  (let ([new-linked-list (new-linked-list 1 2 3 4 5 6 7 8)])
-    (linked-list-append! new-linked-list shared-linked-list)
-    new-linked-list))
+  (let ([new-ll (new-linked-list (range 1 9))])
+    (linked-list-append! new-ll shared-linked-list)
+    new-ll))
 (define test-linked-list-b
-  (let ([new-linked-list (new-linked-list 1 2 3 4)])
-    (linked-list-append! new-linked-list shared-linked-list)
-    new-linked-list))
+  (let ([new-ll (new-linked-list (range 1 5))])
+    (linked-list-append! new-ll shared-linked-list)
+    new-ll))
 
 (get-intersection-node test-linked-list-a test-linked-list-b)

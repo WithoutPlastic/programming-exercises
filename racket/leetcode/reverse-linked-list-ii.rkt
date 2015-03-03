@@ -37,7 +37,7 @@
 
   (call-with-values (λ _ (reverse-walk (seek))) rotate))
 
-(define test-linked-list (new-linked-list 1 2 3 4 5))
+(define test-linked-list (new-linked-list (range 1 6)))
 
 (reverse-between! test-linked-list 2 4)
 (displayln test-linked-list)

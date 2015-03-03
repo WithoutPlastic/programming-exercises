@@ -10,8 +10,7 @@
     (apply + (map * (map char->number chars) dec-weights))))
 
 (define [get-width int]
-  (define [iter e]
-    (if [= 0 (floor (/ int (expt 10 e)))] e (iter (add1 e))))
+  (define [iter e] (if [= 0 (floor (/ int (expt 10 e)))] e (iter (add1 e))))
   (iter 1))
 
 (define [number->chars int]

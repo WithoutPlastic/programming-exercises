@@ -38,6 +38,6 @@
               (bnode-set-left! p-bnode (make-btree-alone-node first-payload))
               p-bnode)))))
 
-(define test-linked-nodes (apply new-linked-nodes (range 0 24)))
+(define test-linked-nodes (new-linked-nodes (range 0 24)))
 
 (btree-serialize (sorted-linked-list->bst test-linked-nodes))

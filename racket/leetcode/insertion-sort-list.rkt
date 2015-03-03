@@ -25,4 +25,4 @@
   (linked-list-body (iter linked-nodes (make-linked-list '()))))
 
 (insertion-sort-linked-list
-  (apply new-linked-nodes (build-list 20 (thunk* (random 10)))) <)
+  (new-linked-nodes (build-list 20 (thunk* (random 10)))) <)

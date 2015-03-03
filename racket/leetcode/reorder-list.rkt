@@ -28,4 +28,4 @@
     (linked-nodes-reverse! mid-lnode)
     (iter head last-lnode)))
 
-(reorder-linked-list (new-linked-nodes 0 1 2 3 4 5 6 7 8))
+(reorder-linked-list (new-linked-nodes (range 0 9)))

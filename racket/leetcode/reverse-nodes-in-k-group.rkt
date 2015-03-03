@@ -43,7 +43,7 @@
   (when [< 1 k] (iter linked-nodes))
   linked-nodes)
 
-(define test-linked-list (new-linked-list 1 2 3 4 5 6 7 8 9 10))
+(define test-linked-list (new-linked-list (range 1 11)))
 
 ;(reverse-k-group test-linked-list 2)
 (reverse-k-group test-linked-list 4)

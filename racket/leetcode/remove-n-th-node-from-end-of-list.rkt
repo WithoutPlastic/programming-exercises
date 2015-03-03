@@ -25,7 +25,7 @@
 
   (walk lnodes ((n-lnode-next n) lnodes)))
 
-(define test-linked-nodes (new-linked-nodes 1 2 3 4 5))
+(define test-linked-nodes (new-linked-nodes (range 1 6)))
 
 (remove-n-th-from-end! test-linked-nodes 2)
 (displayln test-linked-nodes)

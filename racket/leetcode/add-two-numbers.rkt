@@ -24,8 +24,8 @@
 
   (iter lnodes-a lnodes-b 0))
 
-(define nums-a (new-linked-nodes 2 4 3))
-(define nums-b (new-linked-nodes 5 6 4))
-(define nums-c (new-linked-nodes 7 5 1 8))
+(define nums-a (new-linked-nodes '(2 4 3)))
+(define nums-b (new-linked-nodes '(5 6 4)))
+(define nums-c (new-linked-nodes '(7 5 1 8)))
 
 (add-two-numbers nums-c nums-b)

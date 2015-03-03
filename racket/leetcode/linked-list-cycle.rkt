@@ -18,9 +18,9 @@
 
   (walk linked-list linked-list))
 
-(define test-linked-list (apply new-linked-list (range 0 10)))
+(define test-linked-list (new-linked-list (range 0 10)))
 (define test-cycle-linked-list
-  (let ([ll (apply new-linked-list (range 0 10))])
+  (let ([ll (new-linked-list (range 0 10))])
     (lnode-set-next! (linked-list-seek ll 9) (linked-list-seek ll 5))
     ll))
 

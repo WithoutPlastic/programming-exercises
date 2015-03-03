@@ -24,8 +24,8 @@
   (unless [linked-list-empty? linked-list]
     (iter (linked-list-body linked-list))))
 
-(define test-linked-list-a (new-linked-list 1 1 2))
-(define test-linked-list-b (new-linked-list 1 1 2 3 3))
+(define test-linked-list-a (new-linked-list '(1 1 2)))
+(define test-linked-list-b (new-linked-list '(1 1 2 3 3)))
 
 (delete-duplicates! test-linked-list-a) (displayln test-linked-list-a)
 (delete-duplicates! test-linked-list-b) (displayln test-linked-list-b)

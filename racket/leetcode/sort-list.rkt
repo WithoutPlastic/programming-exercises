@@ -36,8 +36,7 @@
             (lnode-set-next! second-lnode first-lnode)
             (lnode-set-next! first-lnode '())))))))
 
-(define test-linked-list
-  (apply new-linked-list (build-list 20 (thunk* (random 10)))))
+(define test-linked-list (new-linked-list (build-list 20 (thunk* (random 10)))))
 
 (displayln test-linked-list)
 (binary-sort-linked-list! test-linked-list <)

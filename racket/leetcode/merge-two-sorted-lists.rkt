@@ -17,7 +17,7 @@
         ([lnode-last? lnodes-b] lnodes-a)
         (else (continue))))
 
-(define test-a (new-linked-nodes -10 -8 -4 -1 0 0 1 7 9))
-(define test-b (new-linked-nodes -9 -7 -4 -1 1 2 4 6 6))
+(define test-a (new-linked-nodes '(-10 -8 -4 -1 0 0 1 7 9)))
+(define test-b (new-linked-nodes '(-9 -7 -4 -1 1 2 4 6 6)))
 
 (merge-two-sorted-lists test-a test-b)

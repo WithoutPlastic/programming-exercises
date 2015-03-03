@@ -20,9 +20,9 @@
       (let ([next-one-node (lnode-next head)]
             [next-two-node (double-lnode-next head)]
             [next-three-node (triple-lnode-next head)])
-        (set-lnode-next! head next-two-node)
-        (set-lnode-next! next-two-node next-one-node)
-        (set-lnode-next! next-one-node next-three-node)
+        (lnode-set-next! head next-two-node)
+        (lnode-set-next! next-two-node next-one-node)
+        (lnode-set-next! next-one-node next-three-node)
         (iter next-one-node)))
 
     (when [and [not [lnode-last? head]] [not [lnode-last? (lnode-next head)]]]
@@ -31,8 +31,8 @@
   (iter linked-node)
   linked-node)
 
-(define test-linked-list-a (new-linked-list 1 2 3 4))
-(define test-linked-list-b (new-linked-list 1 2 3 4 5))
+(define test-linked-list-a (new-linked-list '(1 2 3 4)))
+(define test-linked-list-b (new-linked-list '(1 2 3 4 5)))
 
 (swap-pairs test-linked-list-a)
 (swap-pairs test-linked-list-b)
