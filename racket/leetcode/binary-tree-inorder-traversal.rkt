@@ -42,17 +42,14 @@
 (define [inorder-traversal root]
   (define [traversal bnode result back]
     (if [null? bnode] (back result)
-      (traversal
-        (bnode-left bnode) result
-        (λ [ret]
-           (traversal
-             (bnode-right bnode) ret
-             (λ [ret] (back (append ret (list (bnode-payload bnode))))))))))
+      (traversal (bnode-right bnode)
+                 result
+                 (λ [ret] (traversal (bnode-left bnode)
+                                     (cons (bnode-payload bnode) ret)
+                                     (λ [ret] (back ret)))))))
 
-  (traversal (bnode-left root) '()
-             (λ [ret] (traversal (bnode-right root) ret
-                                 (λ [ret] (cons (bnode-payload root) ret))))))
+  (traversal root '() identity))
 
-(define test-tree (btree-parse '(1 2 3 - - 4 - - 5)))
+(define test-tree (btree-parse '(f b g a d - i - - c e h)))
 
 (inorder-traversal test-tree)
