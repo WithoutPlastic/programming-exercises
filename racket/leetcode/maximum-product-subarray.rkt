@@ -9,12 +9,16 @@
 
 (require "lib/permutation.rkt")
 
-(define [max-product ints]
-  (let ([len (length ints)])
-    (apply max (map (λ [p] (apply * (take (drop ints (car p)) (cdr p))))
-                    (append-map
-                      (λ [slice-len] (map (curryr cons slice-len)
-                                          (range 0 (add1 (- len slice-len)))))
-                      (range 1 (add1 len)))))))
+(define [max-product nums]
+  (define [iter remaining min-p max-p result]
+    (if [null? remaining] result
+      (let* ([first-n (car remaining)] [rests (cdr remaining)]
+             [next-min-p (min (* min-p first-n) (* min-p first-n) first-n)]
+             [next-max-p (max (* max-p first-n) (* max-p first-n) first-n)]
+             [next-result (max next-max-p result)])
+        (iter rests next-min-p next-max-p next-result))))
+
+  (if [null? nums] 0 (iter nums 1 1 1)))
 
 (max-product '(2 3 -2 4))
+(max-product '(2 4 -3 6 9 7 3 -1 2 1/2 3 -2 6 4 -3 2 7 8 -1 9 2 3))
