@@ -1,0 +1,121 @@
+Column 1 / Problems
+
+----------
+
+P1. If memory were not scarce, how would you implement a sort in a language with libraries for
+representing and sorting sets?
+
+> Sort it in memory since this is significant improvement of original challenge. For those
+high-level programming language, less than ten lines code is needed.
+
+----------
+
+P2. How would you implement bit vectors using bitwise logical operations(such as and, or, shift)?
+
+> Not catch the point, in the text, using bit vectors is a efficient solution with minimised memory
+consumption. Both for pure integer sort or record with integer field under unique criteria.
+
+----------
+
+P3. Run-time efficiency was an important part of the design goal, and the resulting program was
+efficient enough. Implement the bitmap sort on your system and measure its run time; how does it
+compare to the system sort and to the sorts in Problem 1? Assume that n is 10,000,000, and that the
+input file contains 1,000,000 integers.
+
+> Since I am not quite familiar with C, Let me try to answer it. Let represent a allocate
+10,000,000 bit long memory block. And lookup by offset is constant operation. So it is most
+resource saving solution(no negative integer then all bit used once) that reading integer directly
+into memory.
+
+----------
+
+P4. If you take Problem 3 seriously, you will face the problem of generating k integers less than n
+without duplicates. The simplest approach uses the first k positive integers. This extreme data set
+won't alter the run time of the bitmap method by much, but it might skew the run time of a system
+sort. How could you generate a file of k unique random integers between 0 and n - 1 in random
+order? Strive for a short program that is also efficient.
+
+> Use pesudo-radom generator, using different seed if needed.
+
+----------
+
+P5. The programmer said that he had about a megabyte of free storage, but the code we sketched uses
+1.25 megabytes. He was able to scrounge the extra space without much trouble. If the megabyte had
+been a hard and fast boundary, what would you have recommended? Waht is the run time of your
+alogorithm?
+
+> Do it with two pass.
+
+----------
+
+P6. What would you recommend to the programmer if, instead of saying that each integer could appear
+at most once, he told you that each integer could appear at most ten times? How you would your
+solution changes as a function of the amount of available storage?
+
+> Okay, since 10 should using 4 bit to represent. the storage would scale four-time than the
+original bit vector solution. For high-level languages, a hash table is needed.
+
+----------
+
+P7. The program as sketched has several flaws. The first is that is assumes that no integer appears
+twice in the input. What happens if one does show up more than once? How could the program be
+modified to call an error function in that case? What happens when an input integer is less than
+zero or greater than or equal to n? What if an input is not numeric? What should a program do
+under those circumstances? What other sanity checks could the program incorporate? Describe small
+data sets that test the program, including its proper handling of these and other ill-behaved cases.
+
+> Duplicated integer will be dropped. In that case, raise an exception and exit is recommended
+behavior since enter criteria is break. In C, the illegal boundary access might happen, others will
+raise an exception, the reason is same, enter criteria is break. Also for negative integer and
+non-integer. Other sanity checks? Not sure, something called type-check is needed.
+
+----------
+
+P8. When the programmer faced the problem, all toll-free phone numbers in the united states had the
+800 area code. Toll-free codes now include 800, 877 and 888, and the list is growing. How would you
+sort all of the toll-free numbers using only a megabyte? How can you store a set of toll-free
+numbers to allow very rapid lookup to determine whether a given toll-free number is available or
+already taken?
+
+> Do key indexing. those code number can be encoding to bit vector.
+
+----------
+
+P9. One problem with trading more space to use less time is that initializing the space can itself
+take a great deal of time. Show how to circumvent this problem by designing a technique to
+initialze an entry of a vector to zero the first time it is accessed. Your scheme should use
+constant time for initialization and for each vector access, and use extra space proportional to
+the size of the vector. Because this method reduces initialization time by using even more space,
+it should be considered only when space is cheap, time is dear and the vector is sparse.
+
+> Key indexing.
+
+----------
+
+P10. Before the days of low-cost overnight deliveries, a store allowed customers to order items
+over the telephone, which they picked up a few days later. The store's database used the
+customers's telephone number as the primary key for retrieval (customers know their phone numbers
+and the keys are close to unique). How would you organize the store's database to allow orders to
+be inserted and retrieved efficiently?
+
+> Covert phone number to numeric value. and build indexing.
+
+----------
+
+P11. In the early 1980's lockheed engineers transmitted daily a dozen drawings from a computer
+aided design(CAD) system in the their Sunnyvale, California, plant to a test station in Santa Cruz.
+although the facilities were just 25 miles apart, an automobile courier service took over an hour
+(due to traffic jams and mountain roads) and cost a hundred dollars per day. Propose alternative
+data transmission schemes and estimate their cost.
+
+> A transmission network with data compression?
+
+----------
+
+P12. Pioneers of human space flight soon realized the need for writing implements that work well in
+the extreme environment of space. A popular urban legend asserts that the United States National
+Aeronautics and Space Administration (NASA) solved the problem with a million dollars fo research
+to develop a special pen. According to the legend, how did the former Soviet Union solve the same
+problem?
+
+> Search in wikipedia.
