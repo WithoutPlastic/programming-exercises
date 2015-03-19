@@ -1,82 +1,81 @@
 #lang racket
 
-(define input-data-file "input.data")
-(define output-data-file "output.data")
-(define temp-file-path "tmp/")
-(define in-temp (curry string-append temp-file-path))
-(define memory-limit-in-line 5000)
+(require "./int-bytes-convert.rkt")
 
-(define [get-input-integers-number file-path]
-  (call-with-input-file
-    file-path
-    (λ [in] (let iter ([cnt 0])
-                 (if [eof-object? (read-line in)] cnt (iter (add1 cnt)))))))
+(define [sort-in-file in-file out-file mem-limit tmp-path compare]
+  (let ([total-size (file-size in-file)]
+        [in-temp (curry string-append tmp-path)]
+        [bytes-compare (if [eq? compare <] bytes<? bytes>?)])
+    (define [sort-in-memory]
+      (displayln 'sort-in-memory)
+      (define [read-file-4-byte-chunk]
+        (call-with-input-file
+          in-file
+          (λ [i] (let iter ([readed (read-bytes 4 i)] [accum '()])
+                   (if [eof-object? readed] (reverse accum)
+                     (iter (read-bytes 4 i) (cons readed accum)))))))
 
-(define [split-file file-path offset]
-  (let* ([in (open-input-file file-path)]
-         [output-prefix (number->string offset)]
-         [output-head-file (in-temp (string-append output-prefix "h"))]
-         [output-tail-file (in-temp (string-append output-prefix "t"))]
-         [out-h (open-output-file output-head-file #:exists 'truncate)]
-         [out-t (open-output-file output-tail-file #:exists 'truncate)])
-    (let write-first-half ([remaining offset])
-      (if [<= remaining 0] (close-output-port out-h)
-        (begin
-          (displayln (read-line in) out-h)
-          (write-first-half (sub1 remaining)))))
-
-    (let write-left ()
-      (let ([readed (read-line in)])
-        (if [eof-object? readed] (close-output-port out-t)
-          (begin
-            (displayln readed out-t)
-            (write-left)))))
-
-    (close-input-port in)
-    (values output-head-file output-tail-file)))
-
-(define [sort-in-memory input-file-path output-file-path compare]
-  (display-lines-to-file
-    (map number->string (sort (map string->number (file->lines input-file-path)) compare))
-    output-file-path
-    #:exists 'truncate))
-
-(define [sort-in-file input-file-path output-file-path compare]
-  (let* ([line-count (get-input-integers-number input-file-path)]
-         [head-half-count (floor (/ line-count 2))]
-         [tail-half-count (- line-count head-half-count)])
-    (define [merge input-file-path-a input-file-path-b]
-      (let ([in-a (open-input-file input-file-path-a)]
-            [in-b (open-input-file input-file-path-b)]
-            [out (open-output-file output-file-path #:exists 'truncate)])
-        (let iter ([readed-a (read-line in-a)] [readed-b (read-line in-b)])
-          (unless [and [eof-object? readed-a] [eof-object? readed-b]]
-            (cond ([eof-object? readed-a]
-                   (displayln readed-b out)
-                   (iter eof (read-line in-b)))
-                  ([eof-object? readed-b]
-                   (displayln readed-a out)
-                   (iter (read-line in-a) eof))
-                  ([compare (string->number readed-a) (string->number readed-b)]
-                   (displayln readed-a out)
-                   (iter (read-line in-a) readed-b))
-                  (else (displayln readed-b out)
-                        (iter readed-a (read-line in-b))))))
-
-        (close-input-port in-a)
-        (close-input-port in-b)
+      (let* ([4bytes-lst (read-file-4-byte-chunk)]
+             [sorted (sort 4bytes-lst bytes-compare)]
+             [out (open-output-file out-file #:exists 'truncate)])
+        (for-each (λ [chunk] (write-bytes chunk out)) sorted)
         (close-output-port out)))
 
     (define [split-and-merge]
-      (let-values ([(h-file t-file) (split-file input-file-path head-half-count)])
-        (sort-in-file h-file h-file compare)
-        (sort-in-file t-file t-file compare)
-        (merge h-file t-file)))
+      (define [split]
+        (displayln 'split)
+        (let* ([4bytes-size (/ total-size 4)]
+               [h-halve-size (* (floor (/ 4bytes-size 2)) 4)]
+               [t-halve-size (* (- 4bytes-size (floor (/ 4bytes-size 2))) 4)]
+               [out-name (λ [suffix] (in-temp (string-append (number->string 4bytes-size) suffix)))]
+               [out-h-file (out-name "h")]
+               [out-t-file (out-name "t")]
+               [in (open-input-file in-file)]
+               [out-h (open-output-file out-h-file #:exists 'truncate)]
+               [out-t (open-output-file out-t-file #:exists 'truncate)])
+          (write-bytes (read-bytes h-halve-size in) out-h)
+          (write-bytes (read-bytes t-halve-size in) out-t)
 
-    (if [< memory-limit-in-line line-count] (split-and-merge)
-      (sort-in-memory input-file-path output-file-path compare))))
+          (close-output-port out-h)
+          (close-output-port out-t)
+          (close-input-port in)
 
-(when [file-exists? input-data-file]
-  (unless [directory-exists? temp-file-path] (make-directory temp-file-path))
-  (sort-in-file input-data-file output-data-file <)
-  (delete-directory/files temp-file-path))
+          (sort-in-file out-h-file out-h-file mem-limit tmp-path compare)
+          (sort-in-file out-t-file out-t-file mem-limit tmp-path compare)
+          (values out-h-file out-t-file)))
+
+      (define [merge h-file t-file]
+        (displayln 'merge)
+        (let ([in-h (open-input-file h-file)]
+              [in-t (open-input-file t-file)]
+              [out (open-output-file out-file #:exists 'truncate)])
+          (let iter ([readed-h (read-bytes 4 in-h)] [readed-t (read-bytes 4 in-t)])
+            (cond ([eof-object? readed-h]
+                   (write-bytes readed-t out)
+                   (write-bytes (port->bytes in-t) out))
+                  ([eof-object? readed-t]
+                   (write-bytes readed-h out)
+                   (write-bytes (port->bytes in-h) out))
+                  ([bytes-compare readed-h readed-t]
+                   (write-bytes readed-h out)
+                   (iter (read-bytes 4 in-h) readed-t))
+                  (else (write-bytes readed-t out)
+                        (iter readed-h (read-bytes 4 in-t)))))
+
+          (close-input-port in-h)
+          (close-input-port in-t)
+          (close-output-port out)))
+
+      (call-with-values (λ [] (split)) merge))
+
+    (if [<= total-size mem-limit] (sort-in-memory) (split-and-merge))))
+
+(provide sort-in-file)
+
+;(let ([input-data-file "input.data"]
+;      [output-data-file "output.data"]
+;      [temp-file-path "tmp/"])
+;  (when [file-exists? input-data-file]
+;    (unless [directory-exists? temp-file-path] (make-directory temp-file-path))
+;    (sort-in-file input-data-file output-data-file 10000000 temp-file-path <)
+;    (delete-directory/files temp-file-path)))
