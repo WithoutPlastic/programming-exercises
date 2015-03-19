@@ -10,7 +10,10 @@
 
   (list->bytes (iter int 3)))
 
-(define [4bytes->int bstr]
+(define [le-4bytes->int bstr]
   (foldl + 0 (map (λ [i e] (* i (expt 256 e))) (bytes->list bstr) (range 0 4))))
+
+(define [be-4bytes->int bstr]
+  (foldl + 0 (map (λ [i e] (* i (expt 256 e))) (bytes->list bstr) (range 3 -1 -1))))
 
 (provide (all-defined-out))
