@@ -19,10 +19,10 @@
       (if [or [null? char-lst-s] [null? char-lst-t]] common-len
         (let ([last-char-s (last char-lst-s)]
               [last-char-t (last char-lst-t)])
-          (max (if [not [eq? last-char-s last-char-t]] 0
-                 (iter (add1 common-len) (drop-right char-lst-s 1) (drop-right char-lst-t 1)))
-               (iter common-len (drop-right char-lst-s 1) char-lst-t)
-               (iter common-len char-lst-s (drop-right char-lst-t 1))))))))
+          (if [not [eq? last-char-s last-char-t]]
+            (iter (add1 common-len) (drop-right char-lst-s 1) (drop-right char-lst-t 1))
+            (max (iter common-len (drop-right char-lst-s 1) char-lst-t)
+                 (iter common-len char-lst-s (drop-right char-lst-t 1)))))))))
 
 
 ((memorize-func find-longest-common-subsequence) "abcd" "becd")
