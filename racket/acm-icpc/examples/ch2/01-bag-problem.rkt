@@ -10,14 +10,7 @@
 ;1 <= W <= 10000
 
 
-(define [memorize-func func]
-  (let ([hash-table (make-hash)])
-    (λ [goods-lst max-weight]
-       (let ([key (cons (length goods-lst) max-weight)])
-         (if [hash-has-key? hash-table key] (hash-ref hash-table key)
-           (let ([result (func goods-lst max-weight)])
-             (hash-set! hash-table key result)
-             result))))))
+(require "../../lib/memorize-function.rkt")
 
 
 (define [get-max-value-combination goods-lst max-weight]
