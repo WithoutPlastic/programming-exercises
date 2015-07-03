@@ -16,28 +16,24 @@
 ;1 <= Ai < L, 1 <= Bi <= 100
 
 
-(require data/heap)
-
-
 (define [find-min-oil-supply station-lst dest-distance init-oil]
   (let iter ([current-location 0]
              [remaining-station-lst (sort station-lst (λ [a b] [< (car a) (car b)]))]
-             [unused-station-lst (make-heap (λ [a b] [< (cdr b) (cdr a)]))]
+             [unused-station-lst '()]
              [remaining-oil init-oil])
     (let* ([next-distance (+ current-location remaining-oil)]
            [station-passed? (λ [elt] [<= (car elt) next-distance])]
            [passed-station-lst (takef remaining-station-lst station-passed?)]
-           [non-passed-station-lst (dropf remaining-station-lst station-passed?)])
-      (heap-add-all! unused-station-lst passed-station-lst)
+           [non-passed-station-lst (dropf remaining-station-lst station-passed?)]
+           [unioned-unused-station-lst (sort (append unused-station-lst passed-station-lst)
+                                             (λ [a b] [< (cdr b) (cdr a)]))])
       (cond ([<= dest-distance next-distance]
-             (- (length station-lst) (heap-count unused-station-lst)))
-            ([= (heap-count unused-station-lst) 0] false)
-            (else (let ([supply-station (heap-min unused-station-lst)])
-                    (heap-remove-min! unused-station-lst)
-                    (iter next-distance
-                          non-passed-station-lst
-                          unused-station-lst
-                          (cdr supply-station))))))))
+             (- (length station-lst) (length unioned-unused-station-lst)))
+            ([= (length unioned-unused-station-lst) 0] false)
+            (else (iter next-distance
+                        non-passed-station-lst
+                        (cdr unioned-unused-station-lst)
+                        (cdar unioned-unused-station-lst)))))))
 
 
 (find-min-oil-supply (list (cons 10 10) (cons 14 5) (cons 20 2) (cons 21 4)) 25 10)
