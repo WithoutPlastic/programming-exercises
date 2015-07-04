@@ -17,22 +17,25 @@
 ;0 <= K <= 100000
 
 
-(require data/union-find)
+;(require data/union-find)
+(require "../../lib/union-find-set.rkt")
+
+
+(define statement-type-i 'statement-type-i)
+(define statement-type-ii 'statement-type-ii)
 
 
 (define [calculate-incorrect-statement statement-lst N]
   (let* ([init-union-find-set-A (map uf-new (range 1 (add1 N)))]
          [init-union-find-set-B (map uf-new (range 1 (add1 N)))]
          [init-union-find-set-C (map uf-new (range 1 (add1 N)))]
-         [serial-number-valid? (λ [statement] [and [and [<= 0 (sub1 (cadr statement))]
-                                                        [< (sub1 (cadr statement)) N]]
-                                                   [and [<= 0 (sub1 (caddr statement))]
-                                                        [< (sub1 (caddr statement)) N]]])]
+         [idx-valid? (λ [idx] [and [<= 0 idx] [< idx N]])]
+         [serial-number-valid? (λ [statement] [and [idx-valid? (sub1 (cadr statement))] 
+                                                   [idx-valid? (sub1 (caddr statement))]])]
          [illegal-idx-counter (count (negate serial-number-valid?) statement-lst)]
          [valid-idx-statement-lst (filter serial-number-valid? statement-lst)])
     (let iter ([incorrect-counter illegal-idx-counter]
                [remaining-statement-lst valid-idx-statement-lst])
-      (displayln 'debug)
       (if [null? remaining-statement-lst] incorrect-counter
         (let* ([cur-statement (car remaining-statement-lst)]
                [rest-statement-lst (cdr remaining-statement-lst)]
@@ -45,11 +48,9 @@
                [uf-set-y-A (list-ref init-union-find-set-A y-idx)]
                [uf-set-y-B (list-ref init-union-find-set-B y-idx)]
                [uf-set-y-C (list-ref init-union-find-set-C y-idx)])
-          (if [eq? cur-statement-type 'statement-a]
+          (if [eq? cur-statement-type statement-type-i]
             (if [or [uf-same-set? uf-set-x-A uf-set-y-B] [uf-same-set? uf-set-x-A uf-set-y-C]]
-              (begin
-                (displayln cur-statement)
-                (iter (add1 incorrect-counter) (cdr remaining-statement-lst)))
+              (iter (add1 incorrect-counter) (cdr remaining-statement-lst))
               (begin
                 (uf-union! uf-set-x-A uf-set-y-A)
                 (uf-union! uf-set-x-B uf-set-y-B)
@@ -57,9 +58,7 @@
                 (iter incorrect-counter (cdr remaining-statement-lst))))
             (if [or [uf-same-set? uf-set-x-A uf-set-y-A]
                     [uf-same-set? uf-set-x-A uf-set-y-C]]
-              (begin
-                (displayln cur-statement)
-                (iter (add1 incorrect-counter) (cdr remaining-statement-lst)))
+              (iter (add1 incorrect-counter) (cdr remaining-statement-lst))
               (begin
                 (uf-union! uf-set-x-A uf-set-y-B)
                 (uf-union! uf-set-x-B uf-set-y-C)
@@ -68,11 +67,11 @@
 
 
 (calculate-incorrect-statement
-  (list (list 'statement-a 101 1)
-        (list 'statement-b 1 2)
-        (list 'statement-b 2 3)
-        (list 'statement-b 3 3)
-        (list 'statement-a 1 3)
-        (list 'statement-b 3 1)
-        (list 'statement-a 5 5))
+  (list (list statement-type-i 101 1)
+        (list statement-type-ii 1 2)
+        (list statement-type-ii 2 3)
+        (list statement-type-ii 3 3)
+        (list statement-type-i 1 3)
+        (list statement-type-ii 3 1)
+        (list statement-type-i 5 5))
   100)
